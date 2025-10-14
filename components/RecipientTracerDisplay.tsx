@@ -8,6 +8,27 @@ interface RecipientTracerProps {
   recipientEmail: string;
 }
 
+// Icon components for status display
+const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={`animate-spin h-6 w-6 text-gray-700 ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+);
+  
+const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={`h-6 w-6 text-green-600 ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+    </svg>
+);
+  
+const XIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={`h-6 w-6 text-red-600 ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+
+
 const ANIMATION_SPEEDS = {
     [TransactionStatus.IDLE]: 750,
     [TransactionStatus.PROCESSING]: 400,
@@ -114,27 +135,65 @@ export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status,
 
     const currentSnippet = codeSnippets[status as keyof typeof codeSnippets] || codeSnippets[TransactionStatus.IDLE];
     
-    let statusMessage, statusColor;
-    switch (status) {
-        case TransactionStatus.IDLE: statusMessage = 'Waiting for transaction...'; statusColor = 'text-gray-500'; break;
-        case TransactionStatus.PROCESSING:
-        case TransactionStatus.PENDING_CONFIRMATION:
-            statusMessage = `Receiving $${amount.toFixed(2)}...`; statusColor = 'text-blue-600 animate-pulse'; break;
-        case TransactionStatus.SUCCESS:
-        case TransactionStatus.SUCCESS_AFTER_PENDING:
-            statusMessage = `Successfully received $${amount.toFixed(2)}!`; statusColor = 'text-green-600'; break;
-        case TransactionStatus.FAILED:
-        case TransactionStatus.FAILED_AFTER_PENDING:
-            statusMessage = 'Incoming transaction failed.'; statusColor = 'text-red-600'; break;
-        default: statusMessage = ''; statusColor = '';
-    }
+    const renderStatusBox = () => {
+        switch (status) {
+            case TransactionStatus.IDLE:
+                return (
+                    <div className="p-4 rounded-lg text-center mb-4 bg-gray-100 border border-gray-200 min-h-[124px] flex items-center justify-center">
+                        <p className="text-lg font-medium text-gray-500">Waiting for transaction...</p>
+                    </div>
+                );
+            case TransactionStatus.PROCESSING:
+                return (
+                    <div className="p-4 rounded-lg text-center mb-4 bg-blue-50 border border-blue-200 min-h-[124px] flex flex-col items-center justify-center">
+                        <SpinnerIcon className="mx-auto mb-2 h-6 w-6 text-blue-500" />
+                        <p className="text-lg font-medium text-blue-600">Receiving ${amount.toFixed(2)}...</p>
+                    </div>
+                );
+            case TransactionStatus.PENDING_CONFIRMATION:
+                return (
+                    <div className="p-4 rounded-lg text-center mb-4 bg-yellow-50 border border-yellow-200 min-h-[124px] flex flex-col items-center justify-center">
+                        <SpinnerIcon className="mx-auto mb-2 h-6 w-6 text-yellow-500" />
+                        <h3 className="text-lg font-medium text-yellow-700">Payment Pending</h3>
+                        <p className="text-sm text-yellow-600 mt-1">Confirmation is taking longer than usual.</p>
+                    </div>
+                );
+            case TransactionStatus.SUCCESS:
+            case TransactionStatus.SUCCESS_AFTER_PENDING:
+                return (
+                    <div className="p-4 rounded-lg text-center mb-4 bg-green-50 border border-green-200 min-h-[124px] flex flex-col items-center justify-center">
+                         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-2">
+                            <CheckIcon />
+                         </div>
+                        <h3 className="text-lg font-medium text-green-700">Payment Received!</h3>
+                        <p className="text-2xl font-bold text-green-800">${amount.toFixed(2)}</p>
+                    </div>
+                );
+            case TransactionStatus.FAILED:
+            case TransactionStatus.FAILED_AFTER_PENDING:
+                return (
+                     <div className="p-4 rounded-lg text-center mb-4 bg-red-50 border border-red-200 min-h-[124px] flex flex-col items-center justify-center">
+                         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-2">
+                            <XIcon />
+                         </div>
+                        <h3 className="text-lg font-medium text-red-700">Transaction Failed</h3>
+                        <p className="text-sm text-red-600 mt-1">The incoming payment could not be completed.</p>
+                    </div>
+                );
+            default:
+                return (
+                    <div className="p-4 rounded-lg text-center mb-4 bg-gray-100 border border-gray-200 min-h-[124px] flex items-center justify-center">
+                        <p className="text-lg font-medium text-gray-500">Waiting for transaction...</p>
+                    </div>
+                );
+        }
+    };
+
 
     return (
         <div>
-            <div className={`p-4 rounded-lg text-center mb-4 ${status === TransactionStatus.IDLE ? 'bg-gray-100' : 'bg-blue-50'}`}>
-                <p className={`text-lg font-medium ${statusColor}`}>{statusMessage}</p>
-            </div>
-            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto min-h-[350px]">
+            {renderStatusBox()}
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto min-h-[268px]">
                 <code>
                     {currentSnippet.map((line, index) => (
                         <CodeLine key={index} isHighlighted={index === currentLine}>{line}</CodeLine>
