@@ -49,8 +49,8 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
     case TransactionStatus.PENDING_CONFIRMATION:
       content = (
         <div className="text-center">
-          <SpinnerIcon className="mx-auto mb-4" />
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Still Processing...</h3>
+          <SpinnerIcon className="mx-auto mb-4 text-yellow-500" />
+          <h3 className="text-lg leading-6 font-medium text-yellow-600">Still Processing...</h3>
           <p className="mt-2 text-sm text-gray-500">Your transaction is taking longer than usual. Please continue to wait.</p>
         </div>
       );
