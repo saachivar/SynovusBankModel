@@ -1,0 +1,5 @@
+{
+  "name": "Tracer-Driven Watchdog Payment Demo",
+  "description": "A frontend application that demonstrates a tracer-driven watchdog pattern for handling slow backend payment processing, preventing duplicate transactions and providing clear user feedback.",
+  "requestFramePermissions": []
+}
