@@ -29,7 +29,11 @@ const XIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, onReset }) => {
   let content;
-  const showResetButton = status === TransactionStatus.SUCCESS || status === TransactionStatus.FAILED;
+  const showResetButton = 
+    status === TransactionStatus.SUCCESS || 
+    status === TransactionStatus.FAILED ||
+    status === TransactionStatus.SUCCESS_AFTER_PENDING ||
+    status === TransactionStatus.FAILED_AFTER_PENDING;
 
   switch (status) {
     case TransactionStatus.PROCESSING:
@@ -41,18 +45,18 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
         </div>
       );
       break;
+    // FIX: Add a case for PENDING_CONFIRMATION to display a message for long-running transactions.
     case TransactionStatus.PENDING_CONFIRMATION:
       content = (
-        <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg w-full">
+        <div className="text-center">
           <SpinnerIcon className="mx-auto mb-4" />
-          <h3 className="text-lg leading-6 font-medium text-yellow-800">Awaiting Confirmation</h3>
-          <p className="mt-2 text-sm text-gray-600">
-            We're still verifying your transaction with the backend. You'll be notified here once it's confirmed.
-          </p>
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Still Processing...</h3>
+          <p className="mt-2 text-sm text-gray-500">Your transaction is taking longer than usual. Please continue to wait.</p>
         </div>
       );
       break;
     case TransactionStatus.SUCCESS:
+    case TransactionStatus.SUCCESS_AFTER_PENDING:
       content = (
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
@@ -64,6 +68,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
       );
       break;
     case TransactionStatus.FAILED:
+    case TransactionStatus.FAILED_AFTER_PENDING:
       content = (
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">

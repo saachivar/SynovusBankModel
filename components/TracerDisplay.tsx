@@ -10,21 +10,23 @@ interface TracerDisplayProps {
 // Define different animation speeds for each status to ensure logical timing.
 const ANIMATION_SPEEDS: { [key in TransactionStatus]: number } = {
     [TransactionStatus.IDLE]: 750,
-    [TransactionStatus.PROCESSING]: 400, // Faster: completes in 6s, before 7s watchdog.
-    [TransactionStatus.PENDING_CONFIRMATION]: 750,
-    [TransactionStatus.SUCCESS]: 750,
-    [TransactionStatus.FAILED]: 750,
+    [TransactionStatus.PROCESSING]: 400, // Total: 6s, before 7s watchdog.
+    [TransactionStatus.PENDING_CONFIRMATION]: 400, // Faster feedback
+    [TransactionStatus.SUCCESS]: 100, // Very snappy finish
+    [TransactionStatus.FAILED]: 100, // Very snappy finish
+    [TransactionStatus.SUCCESS_AFTER_PENDING]: 300, // Slower, more deliberate finish
+    [TransactionStatus.FAILED_AFTER_PENDING]: 300, // Slower, more deliberate finish
 };
 
 // Helper components for syntax highlighting
 const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean }> = ({ children, isHighlighted }) => (
-    <div className={`whitespace-pre-wrap transition-colors duration-300 px-2 rounded ${isHighlighted ? 'bg-sky-900/60' : ''}`}>
+    <div className={`whitespace-pre-wrap transition-colors duration-300 px-2 rounded ${isHighlighted ? 'bg-slate-800' : ''}`}>
         {children}
     </div>
 );
 
 const Keyword: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-pink-400">{children}</span>
+  <span className="text-fuchsia-400">{children}</span>
 );
 
 const Func: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -32,15 +34,15 @@ const Func: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const String: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-lime-300">{children}</span>
+  <span className="text-emerald-400">{children}</span>
 );
 
 const Comment: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-slate-500">{children}</span>
+  <span className="text-gray-500">{children}</span>
 );
 
 const NumberVal: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <span className="text-amber-300">{children}</span>
+    <span className="text-orange-400">{children}</span>
 );
 
 export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId }) => {
@@ -82,8 +84,8 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId })
             <><Comment>// Still waiting for final confirmation from backend...</Comment></>,
         ],
         [TransactionStatus.SUCCESS]: [
-            <><Comment>// Backend responded successfully.</Comment></>,
-            <><Func>clearTimeout</Func>(watchdog); <Comment>// Watchdog is cancelled.</Comment></>,
+            <><Comment>// Backend responded successfully (before watchdog).</Comment></>,
+            <><Func>clearTimeout</Func>(watchdog); <Comment>// Watchdog cancelled in time.</Comment></>,
             <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.success'</String>);</>,
             <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
             <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
@@ -92,43 +94,64 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId })
             <><Func>ui.updateStatus</Func>(<String>'SUCCESS'</String>);</>,
         ],
         [TransactionStatus.FAILED]: [
-            <><Comment>// Backend responded with an error.</Comment></>,
-            <><Func>clearTimeout</Func>(watchdog); <Comment>// Watchdog is cancelled.</Comment></>,
+            <><Comment>// Backend responded with an error (before watchdog).</Comment></>,
+            <><Func>clearTimeout</Func>(watchdog); <Comment>// Watchdog cancelled in time.</Comment></>,
             <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.failed'</String>);</>,
             <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String>, message: <String>'...'</String> {'}'});</>,
             <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
             <>&nbsp;</>,
             <><Comment>// Final UI state.</Comment></>,
             <><Func>ui.updateStatus</Func>(<String>'FAILED'</String>);</>,
+        ],
+        [TransactionStatus.SUCCESS_AFTER_PENDING]: [
+            <><Comment>// Backend finally responded successfully.</Comment></>,
+            <><Comment>// The watchdog had already triggered.</Comment></>,
+            <><Func>clearTimeout</Func>(watchdog); <Comment>// Clear the fired timer.</Comment></>,
+            <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.success.late'</String>);</>,
+            <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
+            <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
+            <>&nbsp;</>,
+            <><Comment>// Final UI state updated from PENDING.</Comment></>,
+            <><Func>ui.updateStatus</Func>(<String>'SUCCESS'</String>);</>,
+        ],
+        [TransactionStatus.FAILED_AFTER_PENDING]: [
+            <><Comment>// Backend finally responded with an error.</Comment></>,
+            <><Comment>// The watchdog had already triggered.</Comment></>,
+            <><Func>clearTimeout</Func>(watchdog); <Comment>// Clear the fired timer.</Comment></>,
+            <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.failed.late'</String>);</>,
+            <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String>, message: <String>'...'</String> {'}'});</>,
+            <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
+            <>&nbsp;</>,
+            <><Comment>// Final UI state updated from PENDING.</Comment></>,
+            <><Func>ui.updateStatus</Func>(<String>'FAILED'</String>);</>,
         ]
     }), [traceId, watchdogThreshold]);
 
     useEffect(() => {
-        setCurrentLine(0); // Reset animation on any status change.
+        const snippetLength = (codeSnippets[status] || []).length;
+        setCurrentLine(0); // Reset animation for all status changes.
     
-        // Use a different animation speed depending on the transaction status.
-        const animationSpeed = ANIMATION_SPEEDS[status];
-    
-        const interval = setInterval(() => {
+        const animationSpeed = ANIMATION_SPEEDS[status as keyof typeof ANIMATION_SPEEDS] || 500;
+        let interval: ReturnType<typeof setInterval>;
+        interval = setInterval(() => {
           setCurrentLine(prevLine => {
-            const snippetLength = (codeSnippets[status] || []).length;
             if (prevLine >= snippetLength - 1) {
               clearInterval(interval);
               return prevLine; // Stop on the last line
             }
             return prevLine + 1;
           });
-        }, animationSpeed); // Use the status-specific speed
+        }, animationSpeed);
     
         return () => clearInterval(interval); // Cleanup on re-render or unmount
       }, [status, codeSnippets]);
 
-    const currentSnippet = codeSnippets[status] || codeSnippets[TransactionStatus.IDLE];
+    const currentSnippet = codeSnippets[status as keyof typeof codeSnippets] || codeSnippets[TransactionStatus.IDLE];
 
     return (
         <div className="mt-12 md:mt-0">
             <h2 className="text-xl font-medium text-black mb-4">Tracer View</h2>
-            <div className="bg-slate-900 rounded-lg p-4 font-mono text-sm text-gray-200 overflow-x-auto min-h-[350px]">
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto min-h-[350px]">
                 <code>
                     {currentSnippet.map((line, index) => (
                         <CodeLine key={index} isHighlighted={index === currentLine}>

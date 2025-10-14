@@ -1,43 +1,45 @@
 import React from 'react';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  activeTab: string;
+  onTabChange: (tab: 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS') => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
+  const getTabClassName = (tabName: string) => {
+    if (activeTab === tabName) {
+      return "text-synovus-red border-b-4 border-synovus-red px-3 py-2 text-lg font-bold";
+    }
+    return "text-gray-500 hover:text-synovus-red px-3 py-2 text-lg font-medium cursor-pointer";
+  };
+
   return (
-    <header className="bg-synovus-red shadow-md">
+    <header className="bg-white shadow-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           <div className="flex-shrink-0">
-            <span className="text-white text-2xl font-bold tracking-wider">
-              SYNOVUS
-            </span>
+            <div className="inline-block">
+              <span className="text-synovus-red text-4xl font-bold font-serif tracking-wider">
+                SYNOVUS<sup className="text-xl font-bold top-[-0.6em] relative">®</sup>
+              </span>
+              <p className="text-synovus-red text-xl italic text-right -mt-1">
+                the bank of here
+              </p>
+            </div>
           </div>
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <a 
-                href="#" 
-                className="bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium" 
-                aria-current="page"
-                onClick={(e) => e.preventDefault()}
-              >
-                Payments
-              </a>
-              <a 
-                href="#" 
-                className="text-red-200 opacity-75 cursor-not-allowed px-3 py-2 rounded-md text-sm font-medium" 
-                title="This feature is not available in this demo"
-                onClick={(e) => e.preventDefault()}
-              >
+          <nav className="hidden md:block">
+            <div className="ml-10 flex items-baseline space-x-8">
+              <a onClick={() => onTabChange('ACCOUNTS')} className={getTabClassName('ACCOUNTS')}>
                 Accounts
               </a>
-              <a 
-                href="#" 
-                className="text-red-200 opacity-75 cursor-not-allowed px-3 py-2 rounded-md text-sm font-medium" 
-                title="This feature is not available in this demo"
-                onClick={(e) => e.preventDefault()}
-              >
+              <a onClick={() => onTabChange('PAYMENTS')} className={getTabClassName('PAYMENTS')} aria-current={activeTab === 'PAYMENTS' ? 'page' : undefined}>
+                Payments
+              </a>
+              <a onClick={() => onTabChange('TRANSFERS')} className={getTabClassName('TRANSFERS')}>
                 Transfers
               </a>
             </div>
-          </div>
+          </nav>
         </div>
       </div>
     </header>
