@@ -1,21 +1,14 @@
 import { PaymentResult } from '../types';
 
 /**
- * Simulates a backend API call for payment processing.
+ * Simulates a backend API call for sending money (P2P).
  * This version has a random delay, with a chance of being slow
  * to demonstrate the watchdog functionality.
  */
-export const processPayment = (traceId: string, amount: number, fromAccountBalance: number): Promise<PaymentResult> => {
-  console.log(`[Mock BE] Received payment request. Trace ID: ${traceId}, Amount: $${amount}`);
+export const sendMoney = (traceId: string, amount: number): Promise<PaymentResult> => {
+  console.log(`[Mock BE - P2P] Received send money request. Trace ID: ${traceId}, Amount: $${amount}`);
 
   return new Promise((resolve) => {
-    // Simulate an immediate backend validation for funds
-    if (amount > fromAccountBalance) {
-        console.log(`[Mock BE] Responding with FAILED (Insufficient Funds). Trace ID: ${traceId}`);
-        resolve({ status: 'FAILED', traceId });
-        return;
-    }
-
     const isSlow = Math.random() < 0.25; // 25% chance of a slow response
     const delay = isSlow
       ? Math.random() * 2000 + 8000 // 8-10 seconds delay (will trigger watchdog)
@@ -25,10 +18,10 @@ export const processPayment = (traceId: string, amount: number, fromAccountBalan
 
     setTimeout(() => {
       if (isSuccess) {
-        console.log(`[Mock BE] Responding with SUCCESS. Trace ID: ${traceId}`);
+        console.log(`[Mock BE - P2P] Responding with SUCCESS. Trace ID: ${traceId}`);
         resolve({ status: 'SUCCESS', traceId });
       } else {
-        console.log(`[Mock BE] Responding with FAILED. Trace ID: ${traceId}`);
+        console.log(`[Mock BE - P2P] Responding with FAILED. Trace ID: ${traceId}`);
         resolve({ status: 'FAILED', traceId });
       }
     }, delay);

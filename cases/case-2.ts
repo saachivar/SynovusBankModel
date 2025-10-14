@@ -4,7 +4,7 @@ import { PaymentResult } from '../types';
  * Case 2: Slow, successful payment.
  * This simulates a backend that responds after the watchdog timeout has fired.
  */
-export const processPayment = (traceId: string, amount: number): Promise<PaymentResult> => {
+export const processPayment = (traceId: string, amount: number, fromAccountBalance: number): Promise<PaymentResult> => {
   console.log(`[Mock BE - Case 2] Received payment request. Trace ID: ${traceId}, Amount: $${amount}`);
 
   return new Promise((resolve) => {

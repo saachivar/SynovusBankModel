@@ -5,6 +5,7 @@ import { WATCHDOG_TIMEOUT_MS } from '../constants';
 interface TracerDisplayProps {
   status: TransactionStatus;
   traceId: string;
+  amount: number;
 }
 
 // Define different animation speeds for each status to ensure logical timing.
@@ -45,7 +46,7 @@ const NumberVal: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <span className="text-orange-400">{children}</span>
 );
 
-export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId }) => {
+export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, amount }) => {
     const [currentLine, setCurrentLine] = useState(0);
     const watchdogThreshold = useMemo(() => WATCHDOG_TIMEOUT_MS / 1000, []);
 
@@ -60,7 +61,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId })
             <><Keyword>const</Keyword> parentSpan = tracer.<Func>startSpan</Func>(<String>'process.payment'</String>, {'{'}</>,
             <>  traceId: <String>'{traceId ? `${traceId.slice(0, 18)}...` : ''}'</String>,</>,
             <>{'});'}</>,
-            <>parentSpan.<Func>setAttribute</Func>(<String>'payment.amount'</String>, <NumberVal>25.00</NumberVal>);</>,
+            <>parentSpan.<Func>setAttribute</Func>(<String>'payment.amount'</String>, <NumberVal>{amount.toFixed(2)}</NumberVal>);</>,
             <>&nbsp;</>,
             <><Comment>// Start a watchdog to monitor backend response time.</Comment></>,
             <><Keyword>const</Keyword> watchdogThreshold = <NumberVal>{watchdogThreshold}</NumberVal>; <Comment>// seconds</Comment></>,
@@ -125,7 +126,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId })
             <><Comment>// Final UI state updated from PENDING.</Comment></>,
             <><Func>ui.updateStatus</Func>(<String>'FAILED'</String>);</>,
         ]
-    }), [traceId, watchdogThreshold]);
+    }), [traceId, watchdogThreshold, amount]);
 
     useEffect(() => {
         const snippet = codeSnippets[status] || [];

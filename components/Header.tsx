@@ -2,7 +2,7 @@ import React from 'react';
 
 interface HeaderProps {
   activeTab: string;
-  onTabChange: (tab: 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS') => void;
+  onTabChange: (tab: 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS' | 'SEND_RECEIVE') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
@@ -37,6 +37,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
               </a>
               <a onClick={() => onTabChange('TRANSFERS')} className={getTabClassName('TRANSFERS')}>
                 Transfers
+              </a>
+              <a onClick={() => onTabChange('SEND_RECEIVE')} className={getTabClassName('SEND_RECEIVE')}>
+                Send &amp; Receive
               </a>
             </div>
           </nav>
