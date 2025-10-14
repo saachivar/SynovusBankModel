@@ -14,9 +14,17 @@ export interface PaymentResult {
     traceId: string;
 }
 
+export type TransactionType = 'PAYMENT' | 'TRANSFER' | 'P2P';
+
 export interface Transaction {
   id: string;
   date: string;
   description: string;
   amount: number;
+  // New properties to support remediation
+  status: 'SUCCESS' | 'FAILED';
+  type: TransactionType;
+  fromAccountId: string;
+  toAccountId?: string;
+  recipient?: string;
 }
