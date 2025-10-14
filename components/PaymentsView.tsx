@@ -15,7 +15,7 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'random', title: 'Random', description: '25% chance of a slow response (8-10s), 15% chance of failure.' },
   { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 2 seconds. Watchdog will not trigger.' },
   { id: 'case2', title: 'Slow Success', description: 'Guaranteed success in 9 seconds. Watchdog will trigger.' },
-  { id: 'case3', title: 'Pending Fail', description: 'Guaranteed failure in 8 seconds. Watchdog will trigger.' },
+  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure in 8 seconds. Watchdog will trigger.' },
 ];
 
 export const PaymentsView: React.FC = () => {

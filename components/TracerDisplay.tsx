@@ -128,22 +128,31 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId })
     }), [traceId, watchdogThreshold]);
 
     useEffect(() => {
-        const snippetLength = (codeSnippets[status] || []).length;
-        setCurrentLine(0); // Reset animation for all status changes.
+        const snippet = codeSnippets[status] || [];
+        const snippetLength = snippet.length;
+        if (snippetLength === 0) {
+            return; // No snippet to animate
+        }
     
         const animationSpeed = ANIMATION_SPEEDS[status as keyof typeof ANIMATION_SPEEDS] || 500;
-        let interval: ReturnType<typeof setInterval>;
-        interval = setInterval(() => {
-          setCurrentLine(prevLine => {
-            if (prevLine >= snippetLength - 1) {
-              clearInterval(interval);
-              return prevLine; // Stop on the last line
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        const animateLine = (line: number) => {
+            if (line >= snippetLength) {
+                // Animation is done, stay on the last line
+                setCurrentLine(snippetLength - 1);
+                return;
             }
-            return prevLine + 1;
-          });
-        }, animationSpeed);
+            setCurrentLine(line);
+            timeoutId = setTimeout(() => {
+                animateLine(line + 1);
+            }, animationSpeed);
+        };
+
+        // Start animation from the first line
+        animateLine(0);
     
-        return () => clearInterval(interval); // Cleanup on re-render or unmount
+        return () => clearTimeout(timeoutId); // Cleanup on re-render or unmount
       }, [status, codeSnippets]);
 
     const currentSnippet = codeSnippets[status as keyof typeof codeSnippets] || codeSnippets[TransactionStatus.IDLE];
