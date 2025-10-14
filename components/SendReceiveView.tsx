@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
 import { RecipientTracerDisplay } from './RecipientTracerDisplay';
-import { TransactionStatus } from '../types';
+import { TransactionStatus, PaymentResult } from '../types';
 import { sendMoney as sendMoneyRandom } from '../services/sendMoneyService';
 import { sendMoney as sendMoneyCase1 } from '../cases/send-money-case-1';
 import { sendMoney as sendMoneyCase2 } from '../cases/send-money-case-2';
@@ -12,7 +12,7 @@ import { Account } from '../../App';
 
 interface SendReceiveViewProps {
   accounts: Account[];
-  onSendMoneySuccess: (fromId: string, recipient: string, amount: number) => void;
+  onSendMoneyComplete: (fromId: string, recipient: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
 }
 
 type TestCase = 'random' | 'case1' | 'case2' | 'case3';
@@ -24,7 +24,7 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure in 8 seconds. Watchdog will trigger.' },
 ];
 
-export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSendMoneySuccess }) => {
+export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSendMoneyComplete }) => {
   const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.IDLE);
   const [traceId, setTraceId] = useState<string>('');
   const [transactionAmount, setTransactionAmount] = useState<number>(0);
@@ -80,7 +80,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
       setStatus(TransactionStatus.PENDING_CONFIRMATION);
     }, WATCHDOG_TIMEOUT_MS);
 
-    let paymentPromise;
+    let paymentPromise: Promise<PaymentResult>;
     switch (activeCase) {
       case 'case1': paymentPromise = sendMoneyCase1(newTraceId, numericAmount); break;
       case 'case2': paymentPromise = sendMoneyCase2(newTraceId, numericAmount); break;
@@ -93,9 +93,10 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
 
     if (result.status === 'SUCCESS') {
       setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
-      onSendMoneySuccess(fromAccount, recipient, numericAmount);
+      onSendMoneyComplete(fromAccount, recipient, numericAmount, 'SUCCESS');
     } else {
       setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
+      onSendMoneyComplete(fromAccount, recipient, numericAmount, 'FAILED');
     }
   };
 
@@ -145,7 +146,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
       <fieldset className="bg-white p-4 rounded-lg shadow mb-8">
         <legend className="text-lg font-medium text-synovus-dark-gray mb-2">Select a Test Case</legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {caseDetails.map(c => (<div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`}><h3 className="font-bold text-gray-800">{c.title}</h3><p className="text-sm text-gray-600 mt-1">{c.description}</p></div>))}
+            {caseDetails.map(c => (<div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`} role="radio" aria-checked={activeCase === c.id} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}><h3 className="font-bold text-gray-800">{c.title}</h3><p className="text-sm text-gray-600 mt-1">{c.description}</p></div>))}
         </div>
       </fieldset>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

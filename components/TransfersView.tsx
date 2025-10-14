@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
-import { TransactionStatus } from '../types';
+import { TransactionStatus, PaymentResult } from '../types';
 import { processTransfer as processTransferRandom } from '../services/transferService';
 import { processTransfer as processTransferCase1 } from '../cases/transfer-case-1';
 import { processTransfer as processTransferCase2 } from '../cases/transfer-case-2';
@@ -11,7 +11,7 @@ import { Account } from '../../App'; // Import the shared Account type
 
 interface TransfersViewProps {
     accounts: Account[];
-    onTransferSuccess: (fromId: string, toId: string, amount: number) => void;
+    onTransferComplete: (fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
 }
 
 type TestCase = 'random' | 'case1' | 'case2' | 'case3';
@@ -23,7 +23,7 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure in 8 seconds. Watchdog will trigger.' },
 ];
 
-export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferSuccess }) => {
+export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferComplete }) => {
     const [fromAccount, setFromAccount] = useState(accounts[0]?.id || '');
     const [toAccount, setToAccount] = useState(accounts[1]?.id || '');
     const [amount, setAmount] = useState('100.00');
@@ -91,7 +91,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             setStatus(TransactionStatus.PENDING_CONFIRMATION);
         }, WATCHDOG_TIMEOUT_MS);
         
-        let transferPromise;
+        let transferPromise: Promise<PaymentResult>;
         const fromBalance = fromAccountDetails.balance;
         switch(activeCase) {
             case 'case1':
@@ -117,10 +117,10 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
 
         if (result.status === 'SUCCESS') {
             setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
-            // This is the key change: call the parent function to update the app's state
-            onTransferSuccess(fromAccount, toAccount, numericAmount);
+            onTransferComplete(fromAccount, toAccount, numericAmount, 'SUCCESS');
         } else {
             setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
+            onTransferComplete(fromAccount, toAccount, numericAmount, 'FAILED');
         }
     };
 
@@ -222,6 +222,10 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
                         className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${
                         activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'
                         }`}
+                        role="radio"
+                        aria-checked={activeCase === c.id}
+                        tabIndex={0}
+                        onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}
                     >
                         <h3 className="font-bold text-gray-800">{c.title}</h3>
                         <p className="text-sm text-gray-600 mt-1">{c.description}</p>

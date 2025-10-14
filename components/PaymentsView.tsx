@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
 import { TransactionStatus } from '../types';
@@ -8,6 +8,7 @@ import { processPayment as processPaymentCase2 } from '../cases/case-2';
 import { processPayment as processPaymentCase3 } from '../cases/case-3';
 import { WATCHDOG_TIMEOUT_MS } from '../constants';
 import { Account } from '../../App';
+import { PaymentForm } from './PaymentForm';
 
 interface PaymentsViewProps {
   accounts: Account[];
@@ -29,43 +30,20 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
   const [transactionAmount, setTransactionAmount] = useState<number>(0);
   const [activeCase, setActiveCase] = useState<TestCase>('random');
   
-  // Form state
-  const [fromAccount, setFromAccount] = useState(accounts[0]?.id || '');
-  const [amount, setAmount] = useState('25.00');
-  const [error, setError] = useState('');
-
   const watchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPending = useRef<boolean>(false);
 
-  useEffect(() => {
-    if (!fromAccount && accounts[0]) {
-      setFromAccount(accounts[0].id);
-    }
-  }, [accounts, fromAccount]);
+  const handlePay = async (fromAccountId: string, amount: number) => {
+    const selectedAccount = accounts.find(acc => acc.id === fromAccountId);
+    if (!selectedAccount) return; // Should not happen if form is correct
 
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
-
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      setError('Please enter a valid amount greater than zero.');
-      return;
-    }
-    
-    const selectedAccount = accounts.find(acc => acc.id === fromAccount);
-    if (!selectedAccount || numericAmount > selectedAccount.balance) {
-      setError('Insufficient funds for this payment.');
-      return;
-    }
-    
     // Start payment process
     const newTraceId = crypto.randomUUID();
     setTraceId(newTraceId);
-    setTransactionAmount(numericAmount);
+    setTransactionAmount(amount);
     setStatus(TransactionStatus.PROCESSING);
     wasPending.current = false;
-    console.log(`[App] Starting payment. Case: ${activeCase}. Trace ID: ${newTraceId}, Amount: $${numericAmount}`);
+    console.log(`[App] Starting payment. Case: ${activeCase}. Trace ID: ${newTraceId}, Amount: $${amount}`);
 
     if (watchdogTimer.current) {
       clearTimeout(watchdogTimer.current);
@@ -81,16 +59,16 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
     const fromBalance = selectedAccount.balance;
     switch (activeCase) {
       case 'case1':
-        paymentPromise = processPaymentCase1(newTraceId, numericAmount, fromBalance);
+        paymentPromise = processPaymentCase1(newTraceId, amount, fromBalance);
         break;
       case 'case2':
-        paymentPromise = processPaymentCase2(newTraceId, numericAmount, fromBalance);
+        paymentPromise = processPaymentCase2(newTraceId, amount, fromBalance);
         break;
       case 'case3':
-        paymentPromise = processPaymentCase3(newTraceId, numericAmount, fromBalance);
+        paymentPromise = processPaymentCase3(newTraceId, amount, fromBalance);
         break;
       default:
-        paymentPromise = processPaymentRandom(newTraceId, numericAmount, fromBalance);
+        paymentPromise = processPaymentRandom(newTraceId, amount, fromBalance);
     }
     
     const result = await paymentPromise;
@@ -103,10 +81,10 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
 
     if (result.status === 'SUCCESS') {
       setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
-      onPaymentComplete(fromAccount, numericAmount, 'SUCCESS');
+      onPaymentComplete(fromAccountId, amount, 'SUCCESS');
     } else {
       setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-      onPaymentComplete(fromAccount, numericAmount, 'FAILED');
+      onPaymentComplete(fromAccountId, amount, 'FAILED');
     }
   };
 
@@ -115,4 +93,57 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
     setTraceId('');
     setTransactionAmount(0);
     if (watchdogTimer.current) {
-      clearTimeout(watchdogTimer
+      clearTimeout(watchdogTimer.current);
+    }
+    wasPending.current = false;
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-3xl font-extrabold text-synovus-dark-gray sm:text-4xl">
+          Bill Payments
+        </h1>
+        <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
+          This screen demonstrates a tracer-driven watchdog pattern. Slow or failed backend responses are handled gracefully to prevent duplicate payments and keep you informed.
+        </p>
+      </div>
+
+      <div className="mb-8">
+        <fieldset className="bg-white p-4 rounded-lg shadow">
+          <legend className="text-lg font-medium text-synovus-dark-gray mb-2">Select a Backend Response Scenario</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {caseDetails.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => setActiveCase(c.id)}
+                className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${
+                  activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'
+                }`}
+                role="radio"
+                aria-checked={activeCase === c.id}
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}
+              >
+                <h3 className="font-bold text-gray-800">{c.title}</h3>
+                <p className="text-sm text-gray-600 mt-1">{c.description}</p>
+              </div>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="bg-white p-8 rounded-xl shadow-md">
+          <h2 className="text-xl font-medium text-black mb-4">Payment Terminal</h2>
+          {status === TransactionStatus.IDLE ? (
+            <PaymentForm accounts={accounts} onPay={handlePay} />
+          ) : (
+            <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
+          )}
+        </div>
+        <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} />
+      </div>
+    </div>
+  );
+};
