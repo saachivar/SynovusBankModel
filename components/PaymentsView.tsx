@@ -3,12 +3,27 @@ import { PaymentForm } from './PaymentForm';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
 import { TransactionStatus } from '../types';
-import { processPayment } from '../services/paymentService';
+import { processPayment as processPaymentRandom } from '../services/paymentService';
+import { processPayment as processPaymentCase1 } from '../cases/case-1';
+import { processPayment as processPaymentCase2 } from '../cases/case-2';
+import { processPayment as processPaymentCase3 } from '../cases/case-3';
+import { processPayment as processPaymentCase4 } from '../cases/case-4';
 import { WATCHDOG_TIMEOUT_MS } from '../constants';
+
+type TestCase = 'random' | 'case1' | 'case2' | 'case3' | 'case4';
+
+const caseDetails: { id: TestCase; title: string; description: string }[] = [
+  { id: 'random', title: 'Random', description: '25% chance of a slow response (8-10s), 15% chance of failure.' },
+  { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 2 seconds. Watchdog will not trigger.' },
+  { id: 'case2', title: 'Slow Success', description: 'Guaranteed success in 9 seconds. Watchdog will trigger.' },
+  { id: 'case3', title: 'Fast Fail', description: 'Guaranteed failure in 0.5 seconds. Watchdog will not trigger.' },
+  { id: 'case4', title: 'Slow Fail', description: 'Guaranteed failure in 9 seconds. Watchdog will trigger.' },
+];
 
 export const PaymentsView: React.FC = () => {
   const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.IDLE);
   const [traceId, setTraceId] = useState<string>('');
+  const [activeCase, setActiveCase] = useState<TestCase>('random');
   // FIX: Use `ReturnType<typeof setTimeout>` for portable timer ID typing.
   const watchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPending = useRef<boolean>(false);
@@ -18,7 +33,7 @@ export const PaymentsView: React.FC = () => {
     setTraceId(newTraceId);
     setStatus(TransactionStatus.PROCESSING);
     wasPending.current = false;
-    console.log(`[App] Starting payment. Trace ID: ${newTraceId}, Amount: $${amount}`);
+    console.log(`[App] Starting payment. Case: ${activeCase}. Trace ID: ${newTraceId}, Amount: $${amount}`);
 
     if (watchdogTimer.current) {
       clearTimeout(watchdogTimer.current);
@@ -30,59 +45,7 @@ export const PaymentsView: React.FC = () => {
       setStatus(TransactionStatus.PENDING_CONFIRMATION);
     }, WATCHDOG_TIMEOUT_MS);
 
-    try {
-      const result = await processPayment(newTraceId, amount);
-      if (watchdogTimer.current) {
-        clearTimeout(watchdogTimer.current);
-      }
-      console.log(`[App] Payment responded. Trace ID: ${result.traceId}, Status: ${result.status}`);
-      
-      if (wasPending.current) {
-        setStatus(result.status === 'SUCCESS' ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.FAILED_AFTER_PENDING);
-      } else {
-        setStatus(result.status === 'SUCCESS' ? TransactionStatus.SUCCESS : TransactionStatus.FAILED);
-      }
-    } catch (error) {
-      if (watchdogTimer.current) {
-        clearTimeout(watchdogTimer.current);
-      }
-      console.error(`[App] Payment failed with an exception. Trace ID: ${newTraceId}`, error);
-      setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-    }
-  };
-
-  const handleReset = () => {
-    if (watchdogTimer.current) {
-      clearTimeout(watchdogTimer.current);
-    }
-    setStatus(TransactionStatus.IDLE);
-    setTraceId('');
-    wasPending.current = false;
-    console.log('[App] Resetting payment flow.');
-  };
-
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-        <div className="bg-white rounded-xl shadow-md overflow-hidden p-8 flex flex-col">
-          <div>
-            <h1 className="block text-xl leading-tight font-medium text-black">Make a Payment</h1>
-            <p className="mt-2 text-gray-500">
-              Enter an amount and click pay. The Tracer View on the right will show the transaction's lifecycle.
-            </p>
-            <div className="mt-6">
-              {status === TransactionStatus.IDLE ? (
-                <PaymentForm onPay={handlePayment} />
-              ) : (
-                <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col">
-          <TracerDisplay status={status} traceId={traceId} />
-        </div>
-      </div>
-    </div>
-  );
-};
+    let paymentPromise;
+    switch (activeCase) {
+      case 'case1':
+        paymentPromise = processPaymentCase1(newTrace
