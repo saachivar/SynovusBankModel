@@ -20,12 +20,13 @@ interface TracerDisplayProps {
     traceId: string;
     amount: number;
     activeCase: TestCase;
+    onLog: (line: number) => void;
 }
 
 const LIKELY_TO_FAIL_THRESHOLD_S = 13;
 const MAX_VISUAL_TIME_S = 14;
 
-export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, amount, activeCase }) => {
+export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, amount, activeCase, onLog }) => {
     const [currentLine, setCurrentLine] = useState(0);
     const [elapsedTime, setElapsedTime] = useState(0);
     
@@ -57,9 +58,6 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
             }
         }
         
-        // This cleanup is critical. When the status changes, the old effect is cleaned up.
-        // Clearing the interval AND resetting the ref to null ensures the next effect run
-        // correctly identifies that a new timer needs to be started.
         return () => { 
             if (timerIntervalRef.current) {
                 clearInterval(timerIntervalRef.current);
@@ -109,7 +107,9 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
             let index = 0;
             const run = () => {
                 if (index < lines.length) {
-                    setCurrentLine(lines[index]);
+                    const line = lines[index];
+                    setCurrentLine(line);
+                    onLog(line); // Fire log event
                     index++;
                 } else {
                     if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
@@ -119,8 +119,6 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
             animationIntervalRef.current = setInterval(run, speed);
         };
 
-        const fastSuccessPath = [1, 2, 4, 7, 11, 14, 17, 20, 21, 22, 29];
-        const fastFailurePath = [1, 2, 4, 7, 11, 14, 17, 20, 24, 25, 29];
         const finalSuccessPath = [17, 20, 21, 22, 29];
         const finalFailurePath = [17, 20, 24, 25, 29];
 
@@ -130,39 +128,27 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
                 break;
             
             case TransactionStatus.PROCESSING:
-                // Animate at a realistic pace. This is fast enough to look good
-                // for a "random" or "fast" success, but also shows the steps clearly
-                // before pausing at "await" for a slow transaction.
                 const processingLines = [1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14];
                 playSequence(processingLines, 250);
                 break;
             
             case TransactionStatus.PENDING_CONFIRMATION:
-                 // Watchdog has fired. Show the watchdog code executing.
                  playSequence([8, 9, 10], 150);
                 break;
 
             case TransactionStatus.SUCCESS:
-                // Fast success (from random or case1).
-                playSequence(fastSuccessPath, 35);
-                break;
             case TransactionStatus.SUCCESS_AFTER_PENDING:
-                // Slow success (case2 or random). Show the final part of the code.
                 playSequence(finalSuccessPath, 35);
                 break;
             
             case TransactionStatus.FAILED:
-                 // Fast failure (from random).
-                 playSequence(fastFailurePath, 35);
-                break;
             case TransactionStatus.FAILED_AFTER_PENDING:
-                // Slow failure (case3 or random).
                 playSequence(finalFailurePath, 35);
                 break;
         }
 
         return () => { if (animationIntervalRef.current) clearInterval(animationIntervalRef.current); };
-    }, [status, activeCase]);
+    }, [status, onLog]);
 
     // Effect to auto-scroll the code view
     useEffect(() => {

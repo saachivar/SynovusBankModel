@@ -6,6 +6,7 @@ import { AccountsView } from './components/AccountsView';
 import { ActivityView } from './components/ActivityView';
 import { TransfersView } from './components/TransfersView';
 import { SendReceiveView } from './components/SendReceiveView';
+import { RemediationTracerModal } from './components/RemediationTracerModal';
 import { Transaction, TransactionType } from './types';
 
 type Tab = 'ACCOUNTS' | 'ACTIVITY' | 'PAYMENTS' | 'TRANSFERS' | 'SEND_RECEIVE';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('PAYMENTS');
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [transactionHistory, setTransactionHistory] = useState<Transaction[]>([]);
+  const [remediatingTx, setRemediatingTx] = useState<Transaction | null>(null);
 
   const addTransaction = (transactionData: Omit<Transaction, 'id' | 'date'>) => {
     const newTransaction: Transaction = {
@@ -39,42 +41,48 @@ const App: React.FC = () => {
     const txToRemediate = transactionHistory.find(tx => tx.id === transactionId);
     if (!txToRemediate) return;
 
-    // Simulate a 50% chance of the transaction having actually succeeded
-    if (Math.random() < 0.5) {
-        console.log(`[Remediation] Reconciling transaction ${transactionId} as SUCCESSFUL.`);
+    setRemediatingTx(txToRemediate);
 
-        setTransactionHistory(prev => 
-            prev.map(tx => tx.id === transactionId ? { ...tx, status: 'SUCCESS' } : tx)
-        );
+    // Simulate a 3-second network call to check the status
+    setTimeout(() => {
+        // Simulate a 50% chance of the transaction having actually succeeded
+        if (Math.random() < 0.5) {
+            console.log(`[Remediation] Reconciling transaction ${transactionId} as SUCCESSFUL.`);
 
-        setAccounts(prevAccounts => {
-            const newAccounts = prevAccounts.map(acc => ({ ...acc }));
-            const fromAccount = newAccounts.find(acc => acc.id === txToRemediate.fromAccountId);
+            setTransactionHistory(prev => 
+                prev.map(tx => tx.id === transactionId ? { ...tx, status: 'SUCCESS' } : tx)
+            );
 
-            if (!fromAccount) return prevAccounts;
+            setAccounts(prevAccounts => {
+                const newAccounts = prevAccounts.map(acc => ({ ...acc }));
+                const fromAccount = newAccounts.find(acc => acc.id === txToRemediate.fromAccountId);
 
-            // Apply the balance change that was skipped during initial failure
-            const amount = Math.abs(txToRemediate.amount);
-            switch (txToRemediate.type) {
-                case 'PAYMENT':
-                case 'P2P':
-                    fromAccount.balance -= amount;
-                    break;
-                case 'TRANSFER':
-                    const toAccount = newAccounts.find(acc => acc.id === txToRemediate.toAccountId);
-                    if (toAccount) {
+                if (!fromAccount) return prevAccounts;
+
+                // Apply the balance change that was skipped during initial failure
+                const amount = Math.abs(txToRemediate.amount);
+                switch (txToRemediate.type) {
+                    case 'PAYMENT':
+                    case 'P2P':
                         fromAccount.balance -= amount;
-                        toAccount.balance += amount;
-                    }
-                    break;
-            }
-            return newAccounts;
-        });
-        alert(`Transaction ${transactionId.slice(0,8)}... has been successfully reconciled.`);
-    } else {
-        console.log(`[Remediation] Transaction ${transactionId} confirmed as FAILED. No change.`);
-        alert(`Status for transaction ${transactionId.slice(0,8)}... checked. It remains FAILED.`);
-    }
+                        break;
+                    case 'TRANSFER':
+                        const toAccount = newAccounts.find(acc => acc.id === txToRemediate.toAccountId);
+                        if (toAccount) {
+                            fromAccount.balance -= amount;
+                            toAccount.balance += amount;
+                        }
+                        break;
+                }
+                return newAccounts;
+            });
+            alert(`Transaction ${transactionId.slice(0,8)}... has been successfully reconciled.`);
+        } else {
+            console.log(`[Remediation] Transaction ${transactionId} confirmed as FAILED. No change.`);
+            alert(`Status for transaction ${transactionId.slice(0,8)}... checked. It remains FAILED.`);
+        }
+        setRemediatingTx(null); // Close the modal
+    }, 3000); // Animation lasts 3 seconds
   };
 
   const handleTransferCompletion = (fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED') => {
@@ -156,6 +164,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
       <Footer />
+      <RemediationTracerModal transaction={remediatingTx} />
     </div>
   );
 };

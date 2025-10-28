@@ -32,6 +32,43 @@ const generateTransactionId = () => {
     return result;
   };
 
+const playSound = (type: 'success' | 'failure') => {
+    if (typeof window === 'undefined') return;
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (!audioContext) return;
+    if (audioContext.state === 'suspended') audioContext.resume();
+
+    if (type === 'success') {
+        const gainNode = audioContext.createGain();
+        gainNode.connect(audioContext.destination);
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
+        const playNote = (freq: number, startTime: number) => {
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = freq;
+            oscillator.connect(gainNode);
+            oscillator.start(audioContext.currentTime + startTime);
+            oscillator.stop(audioContext.currentTime + startTime + 0.1);
+        };
+        playNote(523.25, 0); playNote(659.25, 0.1); playNote(783.99, 0.2);
+    } else if (type === 'failure') {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.4);
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.4);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.4);
+    }
+};
+
 export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSendMoneyComplete }) => {
   const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.IDLE);
   const [traceId, setTraceId] = useState<string>('');
@@ -44,6 +81,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
   const [error, setError] = useState('');
   const [currentRecipient, setCurrentRecipient] = useState('');
   const [eventLog, setEventLog] = useState<LogEntry[]>([]);
+  const loggedLines = useRef(new Set());
 
   const watchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPending = useRef<boolean>(false);
@@ -53,6 +91,14 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
       setFromAccount(accounts[0].id);
     }
   }, [accounts, fromAccount]);
+  
+  useEffect(() => {
+    const finalSuccess = status === TransactionStatus.SUCCESS || status === TransactionStatus.SUCCESS_AFTER_PENDING;
+    const finalFailure = status === TransactionStatus.FAILED || status === TransactionStatus.FAILED_AFTER_PENDING;
+
+    if (finalSuccess) playSound('success');
+    else if (finalFailure) playSound('failure');
+  }, [status]);
 
   const addLogEntry = (source: 'FE' | 'BE', message: string, traceId?: string) => {
     const newEntry: LogEntry = {
@@ -91,14 +137,9 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
     setCurrentRecipient(recipient);
     setStatus(TransactionStatus.PROCESSING);
     wasPending.current = false;
+    loggedLines.current.clear();
     setEventLog([]);
-    addLogEntry('FE', `P2P payment started. Case: ${activeCase}.`);
-    addLogEntry('FE', `Building TransactionAddRequest...`);
-    addLogEntry('FE', `Set PaymentInfo: { Type: 'P2P', Amount: ${numericAmount.toFixed(2)} }`);
-    addLogEntry('FE', `Set Debtor: { Account: '${selectedAccount.name}' }`);
-    addLogEntry('FE', `Set Creditor: { UserIdentifier: '${recipient}' }`);
-    addLogEntry('FE', `Request Sent. MessageID: ${newTraceId.slice(0,18)}...`, newTraceId);
-
+    addLogEntry('FE', `P2P payment started. Case: ${activeCase}.`, newTraceId);
 
     if (watchdogTimer.current) clearTimeout(watchdogTimer.current);
 
@@ -125,14 +166,33 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
       const transactionId = generateTransactionId();
       addLogEntry('BE', `TransactionResult: { Status: 'Posted', TransactionId: '${transactionId}' }`);
       setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
-      addLogEntry('FE', `Transaction complete. Final status: SUCCESS.`);
       onSendMoneyComplete(fromAccount, recipient, numericAmount, 'SUCCESS');
     } else {
       const reason = wasPending.current ? 'PaymentProviderError' : 'AccountNotFound';
       addLogEntry('BE', `TransactionResult: { Status: 'NotPosted', Secondary: '${reason}' }`);
       setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-      addLogEntry('FE', `Transaction complete. Final status: FAILED.`);
       onSendMoneyComplete(fromAccount, recipient, numericAmount, 'FAILED');
+    }
+  };
+  
+  const handleTracerLog = (line: number) => {
+    if (loggedLines.current.has(line)) return;
+    loggedLines.current.add(line);
+    const selectedAccount = accounts.find(acc => acc.id === fromAccount);
+
+    switch(line) {
+      case 2: addLogEntry('FE', 'Building TransactionAddRequest...'); break;
+      case 4: 
+        addLogEntry('FE', `Set PaymentInfo: { Type: 'P2P', Amount: ${transactionAmount.toFixed(2)} }`);
+        if(selectedAccount) addLogEntry('FE', `Set Debtor: { Account: '${selectedAccount.name}' }`);
+        addLogEntry('FE', `Set Creditor: { UserIdentifier: '${currentRecipient}' }`);
+        break;
+      case 7: addLogEntry('FE', `Watchdog timer armed for ${WATCHDOG_TIMEOUT_MS / 1000}s.`); break;
+      case 14: addLogEntry('FE', `Request Sent. MessageID: ${traceId.slice(0,18)}...`, traceId); break;
+      case 17: addLogEntry('FE', 'Backend response received. Clearing watchdog.'); break;
+      case 21: addLogEntry('FE', 'Processing successful response.'); break;
+      case 24: addLogEntry('FE', 'Processing failed response.'); break;
+      case 29: addLogEntry('FE', 'Transaction complete. Final status updated.'); break;
     }
   };
 
@@ -145,6 +205,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
     setAmount('50.00');
     setError('');
     setEventLog([]);
+    loggedLines.current.clear();
   };
 
   const renderSendForm = () => (
@@ -188,20 +249,22 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
       </fieldset>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {/* Top Row */}
-        <div className="bg-white p-8 rounded-xl shadow-md">
-          <h2 className="text-xl font-medium text-black mb-4">Sender Terminal</h2>
-          {status === TransactionStatus.IDLE ? renderSendForm() : <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />}
-        </div>
-
-        <div className="bg-white p-8 rounded-xl shadow-md">
-          <h2 className="text-xl font-medium text-black mb-4">Recipient's View</h2>
-          <RecipientTracerDisplay status={status} traceId={traceId} amount={transactionAmount} recipientEmail={currentRecipient} activeCase={activeCase} />
-        </div>
-
-        {/* Bottom Row */}
         <div className="lg:col-span-1">
-           <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} />
+          <div className="bg-white p-8 rounded-xl shadow-md">
+            <h2 className="text-xl font-medium text-black mb-4">Sender Terminal</h2>
+            {status === TransactionStatus.IDLE ? renderSendForm() : <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />}
+          </div>
+        </div>
+
+        <div className="lg:col-span-1">
+          <div className="bg-white p-8 rounded-xl shadow-md">
+            <h2 className="text-xl font-medium text-black mb-4">Recipient's View</h2>
+            <RecipientTracerDisplay status={status} traceId={traceId} amount={transactionAmount} recipientEmail={currentRecipient} activeCase={activeCase} />
+          </div>
+        </div>
+
+        <div className="lg:col-span-1">
+           <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
         </div>
 
         <div className="lg:col-span-1">
