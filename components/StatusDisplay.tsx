@@ -40,18 +40,17 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
       content = (
         <div className="text-center">
           <SpinnerIcon className="mx-auto mb-4" />
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Processing Payment</h3>
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Processing Securely</h3>
           <p className="mt-2 text-sm text-gray-500">Your transaction is being processed. Please wait.</p>
         </div>
       );
       break;
-    // FIX: Add a case for PENDING_CONFIRMATION to display a message for long-running transactions.
     case TransactionStatus.PENDING_CONFIRMATION:
       content = (
         <div className="text-center">
           <SpinnerIcon className="mx-auto mb-4 text-yellow-500" />
-          <h3 className="text-lg leading-6 font-medium text-yellow-600">Still Processing...</h3>
-          <p className="mt-2 text-sm text-gray-500">Your transaction is taking longer than usual. Please continue to wait.</p>
+          <h3 className="text-lg leading-6 font-medium text-yellow-600">Confirmation Pending</h3>
+          <p className="mt-2 text-sm text-gray-500">Your payment is taking longer than usual. We've recorded your request and will not process a duplicate transaction. You can safely wait or close this screen; we'll update your Activity feed with the final status.</p>
         </div>
       );
       break;
@@ -68,14 +67,24 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
       );
       break;
     case TransactionStatus.FAILED:
+        content = (
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <XIcon />
+            </div>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Failed</h3>
+            <p className="mt-2 text-sm text-gray-500">The transaction failed. Your account has not been charged. Please try again.</p>
+          </div>
+        );
+        break;
     case TransactionStatus.FAILED_AFTER_PENDING:
       content = (
         <div className="text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
             <XIcon />
           </div>
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Failed</h3>
-          <p className="mt-2 text-sm text-gray-500">There was an issue with your payment. Please try again.</p>
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Unconfirmed</h3>
+          <p className="mt-2 text-sm text-gray-500">The transaction could not be confirmed at this time. Your account has not been charged. Please check your Activity feed later or try again.</p>
         </div>
       );
       break;

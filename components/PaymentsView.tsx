@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
-import { TransactionStatus, TestCase } from '../types';
+import { TransactionStatus, TestCase, LogEntry } from '../types';
 import { processPayment as processPaymentRandom } from '../services/paymentService';
 import { processPayment as processPaymentCase1 } from '../cases/case-1';
 import { processPayment as processPaymentCase2 } from '../cases/case-2';
@@ -9,6 +9,7 @@ import { processPayment as processPaymentCase3 } from '../cases/case-3';
 import { WATCHDOG_TIMEOUT_MS } from '../constants';
 import { Account } from '../../App';
 import { PaymentForm } from './PaymentForm';
+import { EventLog } from './EventLog';
 
 interface PaymentsViewProps {
   accounts: Account[];
@@ -22,14 +23,34 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
 ];
 
+const generateTransactionId = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'TXN';
+  for (let i = 0; i < 9; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentComplete }) => {
   const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.IDLE);
   const [traceId, setTraceId] = useState<string>('');
   const [transactionAmount, setTransactionAmount] = useState<number>(0);
   const [activeCase, setActiveCase] = useState<TestCase>('random');
+  const [eventLog, setEventLog] = useState<LogEntry[]>([]);
   
   const watchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasPending = useRef<boolean>(false);
+
+  const addLogEntry = (source: 'FE' | 'BE', message: string, traceId?: string) => {
+    const newEntry: LogEntry = {
+      timestamp: new Date().toLocaleTimeString(),
+      source,
+      message,
+      traceId,
+    };
+    setEventLog(prev => [...prev, newEntry]);
+  };
 
   const handlePay = async (fromAccountId: string, amount: number) => {
     const selectedAccount = accounts.find(acc => acc.id === fromAccountId);
@@ -41,7 +62,14 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
     setTransactionAmount(amount);
     setStatus(TransactionStatus.PROCESSING);
     wasPending.current = false;
-    console.log(`[App] Starting payment. Case: ${activeCase}. Trace ID: ${newTraceId}, Amount: $${amount}`);
+    
+    setEventLog([]); // Clear previous logs
+    addLogEntry('FE', `Transaction started. Case: ${activeCase}.`);
+    addLogEntry('FE', `Building TransactionAddRequest...`);
+    addLogEntry('FE', `Set PaymentInfo: { Type: 'C2B', Amount: ${amount.toFixed(2)} }`);
+    addLogEntry('FE', `Set Debtor: { Account: '${selectedAccount.name}' }`);
+    addLogEntry('FE', `Request Sent. MessageID: ${newTraceId.slice(0,18)}...`, newTraceId);
+
 
     if (watchdogTimer.current) {
       clearTimeout(watchdogTimer.current);
@@ -49,6 +77,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
 
     watchdogTimer.current = setTimeout(() => {
       console.log(`[App] Watchdog triggered. Trace ID: ${newTraceId}`);
+      addLogEntry('FE', `Watchdog triggered! UI moved to "Pending".`, newTraceId);
       wasPending.current = true;
       setStatus(TransactionStatus.PENDING_CONFIRMATION);
     }, WATCHDOG_TIMEOUT_MS);
@@ -74,14 +103,23 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
     if (watchdogTimer.current) {
       clearTimeout(watchdogTimer.current);
     }
-
+    
+    addLogEntry('BE', `TransactionResponse received. Status: ${result.status === 'SUCCESS' ? 'Success' : 'InternalHostError'}.`, result.traceId);
     console.log(`[App] Received backend response: ${result.status}. Trace ID: ${result.traceId}`);
 
     if (result.status === 'SUCCESS') {
-      setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
+      const transactionId = generateTransactionId();
+      addLogEntry('BE', `TransactionResult: { Status: 'Posted', TransactionId: '${transactionId}' }`);
+      const finalStatus = wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS;
+      setStatus(finalStatus);
+      addLogEntry('FE', `Transaction complete. Final status: SUCCESS.`);
       onPaymentComplete(fromAccountId, amount, 'SUCCESS');
     } else {
-      setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
+      const reason = wasPending.current ? 'PaymentProviderError' : 'InvalidRequestData';
+      addLogEntry('BE', `TransactionResult: { Status: 'NotPosted', Secondary: '${reason}' }`);
+      const finalStatus = wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED;
+      setStatus(finalStatus);
+      addLogEntry('FE', `Transaction complete. Final status: FAILED.`);
       onPaymentComplete(fromAccountId, amount, 'FAILED');
     }
   };
@@ -94,6 +132,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
       clearTimeout(watchdogTimer.current);
     }
     wasPending.current = false;
+    setEventLog([]);
   };
 
   return (
@@ -132,13 +171,16 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        <div className="bg-white p-8 rounded-xl shadow-md">
-          <h2 className="text-xl font-medium text-black mb-4">Payment Terminal</h2>
-          {status === TransactionStatus.IDLE ? (
-            <PaymentForm accounts={accounts} onPay={handlePay} />
-          ) : (
-            <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
-          )}
+        <div className="flex flex-col gap-8">
+          <div className="bg-white p-8 rounded-xl shadow-md">
+            <h2 className="text-xl font-medium text-black mb-4">Payment Terminal</h2>
+            {status === TransactionStatus.IDLE ? (
+              <PaymentForm accounts={accounts} onPay={handlePay} />
+            ) : (
+              <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
+            )}
+          </div>
+          <EventLog logs={eventLog} />
         </div>
         <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} />
       </div>

@@ -30,3 +30,10 @@ export interface Transaction {
   toAccountId?: string;
   recipient?: string;
 }
+
+export interface LogEntry {
+  timestamp: string;
+  source: 'FE' | 'BE';
+  message: string;
+  traceId?: string;
+}

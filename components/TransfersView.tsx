@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
-import { TransactionStatus, PaymentResult, TestCase } from '../types';
+import { EventLog } from './EventLog';
+import { TransactionStatus, PaymentResult, TestCase, LogEntry } from '../types';
 import { processTransfer as processTransferRandom } from '../services/transferService';
 import { processTransfer as processTransferCase1 } from '../cases/transfer-case-1';
 import { processTransfer as processTransferCase2 } from '../cases/transfer-case-2';
@@ -21,6 +22,15 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
 ];
 
+const generateTransactionId = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = 'TXN';
+    for (let i = 0; i < 9; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
 export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferComplete }) => {
     const [fromAccount, setFromAccount] = useState(accounts[0]?.id || '');
     const [toAccount, setToAccount] = useState(accounts[1]?.id || '');
@@ -32,6 +42,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
     const [traceId, setTraceId] = useState<string>('');
     const [transactionAmount, setTransactionAmount] = useState<number>(0);
     const [activeCase, setActiveCase] = useState<TestCase>('random');
+    const [eventLog, setEventLog] = useState<LogEntry[]>([]);
     const watchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const wasPending = useRef<boolean>(false);
 
@@ -41,6 +52,15 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         if (!toAccount && accounts[1]) setToAccount(accounts[1].id);
     }, [accounts, fromAccount, toAccount]);
 
+     const addLogEntry = (source: 'FE' | 'BE', message: string, traceId?: string) => {
+        const newEntry: LogEntry = {
+          timestamp: new Date().toLocaleTimeString(),
+          source,
+          message,
+          traceId,
+        };
+        setEventLog(prev => [...prev, newEntry]);
+      };
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -66,10 +86,17 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         }
 
         const fromAccountDetails = accounts.find(acc => acc.id === fromAccount);
+        const toAccountDetails = accounts.find(acc => acc.id === toAccount);
+
         if (!fromAccountDetails || numericAmount > fromAccountDetails.balance) {
             setError('Insufficient funds in the selected account.');
             return;
         }
+        if (!toAccountDetails) {
+            setError('Invalid "To" account selected.');
+            return;
+        }
+
 
         // Start watchdog process
         const newTraceId = crypto.randomUUID();
@@ -77,7 +104,14 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         setTransactionAmount(numericAmount);
         setStatus(TransactionStatus.PROCESSING);
         wasPending.current = false;
-        console.log(`[App] Starting transfer. Case: ${activeCase}. Trace ID: ${newTraceId}, Amount: $${numericAmount}`);
+        setEventLog([]);
+        addLogEntry('FE', `Transfer started. Case: ${activeCase}.`);
+        addLogEntry('FE', `Building TransactionAddRequest...`);
+        addLogEntry('FE', `Set PaymentInfo: { Type: 'A2A', Amount: ${numericAmount.toFixed(2)} }`);
+        addLogEntry('FE', `Set Debtor: { Account: '${fromAccountDetails.name}' }`);
+        addLogEntry('FE', `Set Creditor: { Account: '${toAccountDetails.name}' }`);
+        addLogEntry('FE', `Request Sent. MessageID: ${newTraceId.slice(0,18)}...`, newTraceId);
+
 
         if (watchdogTimer.current) {
             clearTimeout(watchdogTimer.current);
@@ -85,6 +119,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
 
         watchdogTimer.current = setTimeout(() => {
             console.log(`[App] Watchdog triggered for transfer. Trace ID: ${newTraceId}`);
+            addLogEntry('FE', `Watchdog triggered! UI moved to "Pending".`, newTraceId);
             wasPending.current = true;
             setStatus(TransactionStatus.PENDING_CONFIRMATION);
         }, WATCHDOG_TIMEOUT_MS);
@@ -111,13 +146,20 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             clearTimeout(watchdogTimer.current);
         }
 
+        addLogEntry('BE', `TransactionResponse received. Status: ${result.status === 'SUCCESS' ? 'Success' : 'InternalHostError'}.`, result.traceId);
         console.log(`[App] Received backend response for transfer: ${result.status}. Trace ID: ${result.traceId}`);
 
         if (result.status === 'SUCCESS') {
+            const transactionId = generateTransactionId();
+            addLogEntry('BE', `TransactionResult: { Status: 'Posted', TransactionId: '${transactionId}' }`);
             setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
+            addLogEntry('FE', `Transaction complete. Final status: SUCCESS.`);
             onTransferComplete(fromAccount, toAccount, numericAmount, 'SUCCESS');
         } else {
+            const reason = wasPending.current ? 'PaymentProviderError' : 'AccountClosed';
+            addLogEntry('BE', `TransactionResult: { Status: 'NotPosted', Secondary: '${reason}' }`);
             setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
+            addLogEntry('FE', `Transaction complete. Final status: FAILED.`);
             onTransferComplete(fromAccount, toAccount, numericAmount, 'FAILED');
         }
     };
@@ -132,6 +174,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         wasPending.current = false;
         setAmount('100.00');
         setError('');
+        setEventLog([]);
     };
     
     const renderTransferForm = () => (
@@ -234,13 +277,16 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                <div className="bg-white p-8 rounded-xl shadow-md">
-                    <h2 className="text-xl font-medium text-black mb-4">Transfer Terminal</h2>
-                    {status === TransactionStatus.IDLE ? (
-                        renderTransferForm()
-                    ) : (
-                        <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
-                    )}
+                 <div className="flex flex-col gap-8">
+                    <div className="bg-white p-8 rounded-xl shadow-md">
+                        <h2 className="text-xl font-medium text-black mb-4">Transfer Terminal</h2>
+                        {status === TransactionStatus.IDLE ? (
+                            renderTransferForm()
+                        ) : (
+                            <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
+                        )}
+                    </div>
+                    <EventLog logs={eventLog} />
                 </div>
                 <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} />
             </div>
