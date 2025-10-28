@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-type Tab = 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS' | 'SEND_RECEIVE';
+type Tab = 'ACCOUNTS' | 'ACTIVITY' | 'PAYMENTS' | 'TRANSFERS' | 'SEND_RECEIVE';
 
 interface HeaderProps {
   activeTab: Tab;
@@ -12,6 +12,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
 
   const tabs: { name: string; key: Tab }[] = [
     { name: 'Accounts', key: 'ACCOUNTS' },
+    { name: 'Activity', key: 'ACTIVITY' },
     { name: 'Payments', key: 'PAYMENTS' },
     { name: 'Transfers', key: 'TRANSFERS' },
     { name: 'Send & Receive', key: 'SEND_RECEIVE' },

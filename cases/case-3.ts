@@ -8,8 +8,8 @@ export const processPayment = (traceId: string, amount: number, fromAccountBalan
   console.log(`[Mock BE - Case 3] Received payment request. Trace ID: ${traceId}, Amount: $${amount}`);
 
   return new Promise((resolve) => {
-    // 8-second delay, guaranteed to trigger the 7s watchdog.
-    const delay = 8000;
+    // Random delay between 13.1s and 13.9s, guaranteed to trigger both watchdogs.
+    const delay = Math.random() * 800 + 13100;
 
     setTimeout(() => {
       console.log(`[Mock BE - Case 3] Responding with FAILED. Trace ID: ${traceId}`);

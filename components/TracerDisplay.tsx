@@ -1,169 +1,224 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { TransactionStatus } from '../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { TransactionStatus, TestCase } from '../types';
 import { WATCHDOG_TIMEOUT_MS } from '../constants';
 
-interface TracerDisplayProps {
-  status: TransactionStatus;
-  traceId: string;
-  amount: number;
-}
-
-// Define different animation speeds for each status to ensure logical timing.
-const ANIMATION_SPEEDS: { [key in TransactionStatus]: number } = {
-    [TransactionStatus.IDLE]: 750,
-    [TransactionStatus.PROCESSING]: 400, // Total: 6s, before 7s watchdog.
-    [TransactionStatus.PENDING_CONFIRMATION]: 400, // Faster feedback
-    [TransactionStatus.SUCCESS]: 100, // Very snappy finish
-    [TransactionStatus.FAILED]: 100, // Very snappy finish
-    [TransactionStatus.SUCCESS_AFTER_PENDING]: 300, // Slower, more deliberate finish
-    [TransactionStatus.FAILED_AFTER_PENDING]: 300, // Slower, more deliberate finish
-};
-
 // Helper components for syntax highlighting
-const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean }> = ({ children, isHighlighted }) => (
-    <div className={`whitespace-pre-wrap transition-colors duration-300 px-2 rounded ${isHighlighted ? 'bg-slate-800' : ''}`}>
+const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean, isBlinking?: boolean }> = ({ children, isHighlighted, isBlinking }) => (
+    <div className={`whitespace-pre-wrap transition-colors duration-200 px-2 rounded ${isHighlighted ? 'bg-slate-800' : ''} ${isBlinking ? 'animate-pulse' : ''}`}>
         {children}
     </div>
 );
 
-const Keyword: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-fuchsia-400">{children}</span>
-);
+const Keyword: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-fuchsia-400">{children}</span>;
+const Func: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-sky-400">{children}</span>;
+const String: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-emerald-400">{children}</span>;
+const Comment: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-gray-500">{children}</span>;
+const NumberVal: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-orange-400">{children}</span>;
 
-const Func: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-sky-400">{children}</span>
-);
+interface TracerDisplayProps {
+    status: TransactionStatus;
+    traceId: string;
+    amount: number;
+    activeCase: TestCase;
+}
 
-const String: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-emerald-400">{children}</span>
-);
+const LIKELY_TO_FAIL_THRESHOLD_S = 13;
+const MAX_VISUAL_TIME_S = 14;
 
-const Comment: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="text-gray-500">{children}</span>
-);
-
-const NumberVal: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <span className="text-orange-400">{children}</span>
-);
-
-export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, amount }) => {
+export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, amount, activeCase }) => {
     const [currentLine, setCurrentLine] = useState(0);
+    const [elapsedTime, setElapsedTime] = useState(0);
+    
+    const startTimeRef = useRef<number | null>(null);
+    const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const codeContainerRef = useRef<HTMLElement | null>(null);
     const watchdogThreshold = useMemo(() => WATCHDOG_TIMEOUT_MS / 1000, []);
 
-    const codeSnippets = useMemo(() => ({
-        [TransactionStatus.IDLE]: [
-            <><Comment>// Waiting for a transaction to begin...</Comment></>,
-            <><Keyword>const</Keyword> tracer = <Func>opentelemetry.getTracer</Func>(<String>'payment-service-ui'</String>);</>,
-            <>tracer.<Func>on</Func>(<String>'payment_initiated'</String>, handlePayment);</>,
-        ],
-        [TransactionStatus.PROCESSING]: [
-            <><Comment>// Transaction started. Creating a new trace.</Comment></>,
-            <><Keyword>const</Keyword> parentSpan = tracer.<Func>startSpan</Func>(<String>'process.payment'</String>, {'{'}</>,
-            <>  traceId: <String>'{traceId ? `${traceId.slice(0, 18)}...` : ''}'</String>,</>,
-            <>{'});'}</>,
-            <>parentSpan.<Func>setAttribute</Func>(<String>'payment.amount'</String>, <NumberVal>{amount.toFixed(2)}</NumberVal>);</>,
-            <>&nbsp;</>,
-            <><Comment>// Start a watchdog to monitor backend response time.</Comment></>,
-            <><Keyword>const</Keyword> watchdogThreshold = <NumberVal>{watchdogThreshold}</NumberVal>; <Comment>// seconds</Comment></>,
-            <><Keyword>const</Keyword> watchdog = <Func>setTimeout</Func>(() => {'{'}</>,
-            <>  parentSpan.<Func>addEvent</Func>(<String>'watchdog.triggered'</String>);</>,
-            <>  <Func>ui.updateStatus</Func>(<String>'PENDING_CONFIRMATION'</String>);</>,
-            <>{'},'} watchdogThreshold * <NumberVal>1000</NumberVal>);</>,
-            <>&nbsp;</>,
-            <><Comment>// Sending request to the backend service.</Comment></>,
-            <><Func>callBackend</Func>(<String>'/api/pay'</String>, {'{'} traceId, amount {'}'});</>,
-        ],
-        [TransactionStatus.PENDING_CONFIRMATION]: [
-            <><Comment>// Backend response is taking longer than expected.</Comment></>,
-            <><Comment>// The watchdog timer has now fired.</Comment></>,
-            <><Keyword>const</Keyword> watchdog = <Func>setTimeout</Func>(() => {'{'}</>,
-            <>  <span className="text-yellow-400 font-bold">parentSpan.<Func>addEvent</Func>(<String>'watchdog.triggered'</String>);</span></>,
-            <>  <span className="text-yellow-400 font-bold"><Func>ui.updateStatus</Func>(<String>'PENDING_CONFIRMATION'</String>);</span></>,
-            <>{'},'} watchdogThreshold * <NumberVal>1000</NumberVal>); <Comment> // {'<-'} Threshold exceeded!</Comment></>,
-            <>&nbsp;</>,
-            <><Comment>// UI is now in PENDING state.</Comment></>,
-            <><Comment>// Still waiting for final confirmation from backend...</Comment></>,
-        ],
-        [TransactionStatus.SUCCESS]: [
-            <><Comment>// Backend responded successfully (before watchdog).</Comment></>,
-            <><Func>clearTimeout</Func>(watchdog); <Comment>// Watchdog cancelled in time.</Comment></>,
-            <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.success'</String>);</>,
-            <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
-            <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
-            <>&nbsp;</>,
-            <><Comment>// Final UI state.</Comment></>,
-            <><Func>ui.updateStatus</Func>(<String>'SUCCESS'</String>);</>,
-        ],
-        [TransactionStatus.FAILED]: [
-            <><Comment>// Backend responded with an error (before watchdog).</Comment></>,
-            <><Func>clearTimeout</Func>(watchdog); <Comment>// Watchdog cancelled in time.</Comment></>,
-            <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.failed'</String>);</>,
-            <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String>, message: <String>'...'</String> {'}'});</>,
-            <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
-            <>&nbsp;</>,
-            <><Comment>// Final UI state.</Comment></>,
-            <><Func>ui.updateStatus</Func>(<String>'FAILED'</String>);</>,
-        ],
-        [TransactionStatus.SUCCESS_AFTER_PENDING]: [
-            <><Comment>// Backend finally responded successfully.</Comment></>,
-            <><Comment>// The watchdog had already triggered.</Comment></>,
-            <><Func>clearTimeout</Func>(watchdog); <Comment>// Clear the fired timer.</Comment></>,
-            <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.success.late'</String>);</>,
-            <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
-            <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
-            <>&nbsp;</>,
-            <><Comment>// Final UI state updated from PENDING.</Comment></>,
-            <><Func>ui.updateStatus</Func>(<String>'SUCCESS'</String>);</>,
-        ],
-        [TransactionStatus.FAILED_AFTER_PENDING]: [
-            <><Comment>// Backend finally responded with an error.</Comment></>,
-            <><Comment>// The watchdog had already triggered.</Comment></>,
-            <><Func>clearTimeout</Func>(watchdog); <Comment>// Clear the fired timer.</Comment></>,
-            <>parentSpan.<Func>addEvent</Func>(<String>'backend.response.failed.late'</String>);</>,
-            <>parentSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String>, message: <String>'...'</String> {'}'});</>,
-            <>parentSpan.<Func>end</Func>(); <Comment>// Span is complete.</Comment></>,
-            <>&nbsp;</>,
-            <><Comment>// Final UI state updated from PENDING.</Comment></>,
-            <><Func>ui.updateStatus</Func>(<String>'FAILED'</String>);</>,
-        ]
-    }), [traceId, watchdogThreshold, amount]);
-
+    // Effect to manage the master timer for elapsedTime
     useEffect(() => {
-        const snippet = codeSnippets[status] || [];
-        const snippetLength = snippet.length;
-        if (snippetLength === 0) {
-            return; // No snippet to animate
-        }
-    
-        const animationSpeed = ANIMATION_SPEEDS[status as keyof typeof ANIMATION_SPEEDS] || 500;
-        let timeoutId: ReturnType<typeof setTimeout>;
+        const isProcessingOrPending = status === TransactionStatus.PROCESSING || status === TransactionStatus.PENDING_CONFIRMATION;
 
-        const animateLine = (line: number) => {
-            if (line >= snippetLength) {
-                // Animation is done, stay on the last line
-                setCurrentLine(snippetLength - 1);
-                return;
+        if (isProcessingOrPending) {
+            if (startTimeRef.current === null) startTimeRef.current = Date.now();
+            if (timerIntervalRef.current === null) {
+                timerIntervalRef.current = setInterval(() => {
+                    if (startTimeRef.current) setElapsedTime((Date.now() - startTimeRef.current) / 1000);
+                }, 50);
             }
-            setCurrentLine(line);
-            timeoutId = setTimeout(() => {
-                animateLine(line + 1);
-            }, animationSpeed);
+        } else {
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
+            if (status === TransactionStatus.IDLE) {
+                setElapsedTime(0);
+                startTimeRef.current = null;
+            }
+        }
+        
+        // This cleanup is critical. When the status changes, the old effect is cleaned up.
+        // Clearing the interval AND resetting the ref to null ensures the next effect run
+        // correctly identifies that a new timer needs to be started.
+        return () => { 
+            if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+            }
+        };
+    }, [status]);
+    
+    const codeSnippet = useMemo(() => [
+        /* 0*/ <><Comment>// Waiting for transaction...</Comment></>,
+        /* 1*/ <><Keyword>const</Keyword> traceId = <String>'{traceId ? `${traceId.slice(0, 18)}...` : '...'}'</String>;</>,
+        /* 2*/ <><Keyword>const</Keyword> parentSpan = tracer.<Func>startSpan</Func>(<String>'process.payment'</String>, {'{'} traceId {'}'});</>,
+        /* 3*/ <><Comment>// Set attributes for this specific transaction.</Comment></>,
+        /* 4*/ <>parentSpan.<Func>setAttribute</Func>(<String>'payment.amount'</String>, <NumberVal>{amount > 0 ? amount.toFixed(2) : '...'}</NumberVal>);</>,
+        /* 5*/ <>&nbsp;</>,
+        /* 6*/ <><Comment>// Start a watchdog timer. If the backend is slow, this will fire.</Comment></>,
+        /* 7*/ <><Keyword>const</Keyword> watchdog = <Func>setTimeout</Func>(() => {'{'}</>,
+        /* 8*/ <>  <Comment>  // Watchdog triggered! The backend is taking too long.</Comment></>,
+        /* 9*/ <>  parentSpan.<Func>addEvent</Func>(<String>'watchdog.triggered'</String>);</>,
+        /*10*/ <>  <Func>ui.updateStatus</Func>(<String>'PENDING_CONFIRMATION'</String>);</>,
+        /*11*/ <>{'},'} <NumberVal>{WATCHDOG_TIMEOUT_MS}</NumberVal>);</>,
+        /*12*/ <>&nbsp;</>,
+        /*13*/ <><Comment>// Send the request. We are now waiting for the backend to respond.</Comment></>,
+        /*14*/ <><Keyword>const</Keyword> result = <Keyword>await</Keyword> <Func>callBackend</Func>(<String>'/api/pay'</String>, ...);</>,
+        /*15*/ <>&nbsp;</>,
+        /*16*/ <><Comment>// Backend has responded. Stop the watchdog timer.</Comment></>,
+        /*17*/ <><Func>clearTimeout</Func>(watchdog);</>,
+        /*18*/ <>&nbsp;</>,
+        /*19*/ <><Comment>// Process the final result.</Comment></>,
+        /*20*/ <><Keyword>if</Keyword> (result.status === <String>'SUCCESS'</String>) {'{'}</>,
+        /*21*/ <>  parentSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
+        /*22*/ <>  <Func>ui.updateStatus</Func>(<String>'SUCCESS'</String>);</>,
+        /*23*/ <>{'} '} <Keyword>else</Keyword> {'{'}</>,
+        /*24*/ <>  parentSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String> {'}'});</>,
+        /*25*/ <>  <Func>ui.updateStatus</Func>(<String>'FAILED'</String>);</>,
+        /*26*/ <>{'}'}</>,
+        /*27*/ <>&nbsp;</>,
+        /*28*/ <><Comment>// End the trace. All work is complete.</Comment></>,
+        /*29*/ <>parentSpan.<Func>end</Func>();</>,
+    ], [traceId, amount]);
+
+    // Effect to manage code highlighting animation
+    useEffect(() => {
+        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+
+        const playSequence = (lines: number[], speed: number) => {
+            let index = 0;
+            const run = () => {
+                if (index < lines.length) {
+                    setCurrentLine(lines[index]);
+                    index++;
+                } else {
+                    if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+                }
+            };
+            run(); // Run first line immediately
+            animationIntervalRef.current = setInterval(run, speed);
         };
 
-        // Start animation from the first line
-        animateLine(0);
-    
-        return () => clearTimeout(timeoutId); // Cleanup on re-render or unmount
-      }, [status, codeSnippets]);
+        const fastSuccessPath = [1, 2, 4, 7, 11, 14, 17, 20, 21, 22, 29];
+        const fastFailurePath = [1, 2, 4, 7, 11, 14, 17, 20, 24, 25, 29];
+        const finalSuccessPath = [17, 20, 21, 22, 29];
+        const finalFailurePath = [17, 20, 24, 25, 29];
 
-    const currentSnippet = codeSnippets[status as keyof typeof codeSnippets] || codeSnippets[TransactionStatus.IDLE];
+        switch (status) {
+            case TransactionStatus.IDLE:
+                setCurrentLine(0);
+                break;
+            
+            case TransactionStatus.PROCESSING:
+                // Animate at a realistic pace. This is fast enough to look good
+                // for a "random" or "fast" success, but also shows the steps clearly
+                // before pausing at "await" for a slow transaction.
+                const processingLines = [1, 2, 3, 4, 5, 6, 7, 11, 12, 13, 14];
+                playSequence(processingLines, 250);
+                break;
+            
+            case TransactionStatus.PENDING_CONFIRMATION:
+                 // Watchdog has fired. Show the watchdog code executing.
+                 playSequence([8, 9, 10], 150);
+                break;
+
+            case TransactionStatus.SUCCESS:
+                // Fast success (from random or case1).
+                playSequence(fastSuccessPath, 35);
+                break;
+            case TransactionStatus.SUCCESS_AFTER_PENDING:
+                // Slow success (case2 or random). Show the final part of the code.
+                playSequence(finalSuccessPath, 35);
+                break;
+            
+            case TransactionStatus.FAILED:
+                 // Fast failure (from random).
+                 playSequence(fastFailurePath, 35);
+                break;
+            case TransactionStatus.FAILED_AFTER_PENDING:
+                // Slow failure (case3 or random).
+                playSequence(finalFailurePath, 35);
+                break;
+        }
+
+        return () => { if (animationIntervalRef.current) clearInterval(animationIntervalRef.current); };
+    }, [status, activeCase]);
+
+    // Effect to auto-scroll the code view
+    useEffect(() => {
+        if (codeContainerRef.current) {
+            const lineElement = codeContainerRef.current.children[currentLine] as HTMLElement;
+            if (lineElement) {
+                lineElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                });
+            }
+        }
+    }, [currentLine]);
+
+    const progressPercentage = status === TransactionStatus.IDLE ? 0 : Math.min((elapsedTime / MAX_VISUAL_TIME_S) * 100, 100);
+    const getProgressBarColor = () => {
+        if (elapsedTime > LIKELY_TO_FAIL_THRESHOLD_S) return 'bg-red-600';
+        if (elapsedTime > watchdogThreshold) return 'bg-yellow-500';
+        return 'bg-sky-500';
+    };
+    const isPending = status === TransactionStatus.PENDING_CONFIRMATION || status === TransactionStatus.SUCCESS_AFTER_PENDING || status === TransactionStatus.FAILED_AFTER_PENDING;
 
     return (
         <div className="mt-12 md:mt-0">
             <h2 className="text-xl font-medium text-black mb-4">Tracer View</h2>
-            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto min-h-[350px]">
-                <code>
-                    {currentSnippet.map((line, index) => (
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto">
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-semibold text-gray-400">WATCHDOG TIMER</span>
+                        <span className={`text-sm font-bold transition-colors ${elapsedTime > LIKELY_TO_FAIL_THRESHOLD_S ? 'text-red-500' : isPending ? 'text-yellow-400' : 'text-gray-300'}`}>
+                           {elapsedTime.toFixed(2)}s / {MAX_VISUAL_TIME_S.toFixed(1)}s
+                        </span>
+                    </div>
+                    <div className="relative w-full bg-slate-700 rounded-full h-2.5">
+                        <div 
+                            className={`h-2.5 rounded-full transition-all duration-100 ease-linear ${getProgressBarColor()}`} 
+                            style={{ width: `${progressPercentage}%` }}
+                        ></div>
+                        <div 
+                            className="absolute -top-1 -bottom-1 w-px bg-yellow-400"
+                            style={{ left: `${(watchdogThreshold / MAX_VISUAL_TIME_S) * 100}%` }}
+                            title={`Pending Threshold: ${watchdogThreshold}s`}
+                        >
+                             <div className="absolute -bottom-5 -translate-x-1/2 text-yellow-400 text-xs font-bold">{watchdogThreshold}s</div>
+                        </div>
+                        <div 
+                            className="absolute -top-1 -bottom-1 w-px bg-red-500"
+                            style={{ left: `${(LIKELY_TO_FAIL_THRESHOLD_S / MAX_VISUAL_TIME_S) * 100}%` }}
+                            title={`High-Risk Threshold: ${LIKELY_TO_FAIL_THRESHOLD_S}s`}
+                        >
+                             <div className="absolute -bottom-5 -translate-x-1/2 text-red-500 text-xs font-bold">{LIKELY_TO_FAIL_THRESHOLD_S}s</div>
+                        </div>
+                    </div>
+                </div>
+                <code ref={codeContainerRef} className="block h-96 overflow-y-auto">
+                    {codeSnippet.map((line, index) => (
                         <CodeLine key={index} isHighlighted={index === currentLine}>
                           {line}
                         </CodeLine>

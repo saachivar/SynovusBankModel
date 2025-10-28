@@ -6,9 +6,11 @@ import { PaymentResult } from '../types';
 export const sendMoney = (traceId: string, amount: number): Promise<PaymentResult> => {
   console.log(`[Mock BE - P2P Case 3] Received request. Trace ID: ${traceId}, Amount: $${amount}`);
   return new Promise((resolve) => {
+    // Random delay between 13.1s and 13.9s, guaranteed to trigger both watchdogs.
+    const delay = Math.random() * 800 + 13100;
     setTimeout(() => {
       console.log(`[Mock BE - P2P Case 3] Responding with FAILED. Trace ID: ${traceId}`);
       resolve({ status: 'FAILED', traceId });
-    }, 8000);
+    }, delay);
   });
 };

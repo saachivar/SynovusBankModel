@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { TransactionStatus } from '../types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { TransactionStatus, TestCase } from '../types';
 
 interface RecipientTracerProps {
   status: TransactionStatus;
   traceId: string;
   amount: number;
   recipientEmail: string;
+  activeCase: TestCase;
 }
 
 // Icon components for status display
@@ -28,19 +29,8 @@ const XIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-
-const ANIMATION_SPEEDS = {
-    [TransactionStatus.IDLE]: 750,
-    [TransactionStatus.PROCESSING]: 400,
-    [TransactionStatus.PENDING_CONFIRMATION]: 400,
-    [TransactionStatus.SUCCESS]: 100,
-    [TransactionStatus.FAILED]: 100,
-    [TransactionStatus.SUCCESS_AFTER_PENDING]: 300,
-    [TransactionStatus.FAILED_AFTER_PENDING]: 300,
-};
-
-const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean }> = ({ children, isHighlighted }) => (
-    <div className={`whitespace-pre-wrap transition-colors duration-300 px-2 rounded ${isHighlighted ? 'bg-slate-800' : ''}`}>{children}</div>
+const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean, isBlinking?: boolean }> = ({ children, isHighlighted, isBlinking }) => (
+    <div className={`whitespace-pre-wrap transition-colors duration-200 px-2 rounded ${isHighlighted ? 'bg-slate-800' : ''} ${isBlinking ? 'animate-pulse' : ''}`}>{children}</div>
 );
 const Keyword: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-fuchsia-400">{children}</span>;
 const Func: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-sky-400">{children}</span>;
@@ -48,93 +38,103 @@ const String: React.FC<{ children: React.ReactNode }> = ({ children }) => <span 
 const Comment: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-gray-500">{children}</span>;
 const NumberVal: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className="text-orange-400">{children}</span>;
 
-export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status, traceId, amount, recipientEmail }) => {
+export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status, traceId, amount, recipientEmail, activeCase }) => {
     const [currentLine, setCurrentLine] = useState(0);
+    const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const codeContainerRef = useRef<HTMLElement | null>(null);
 
-    const codeSnippets = useMemo(() => ({
-        [TransactionStatus.IDLE]: [
-            <><Comment>// Listening for incoming payment notifications...</Comment></>,
-            <><Keyword>const</Keyword> server = <Func>new PaymentListener</Func>();</>,
-            <>server.<Func>on</Func>(<String>'p2p.payment.received'</String>, handleIncomingPayment);</>,
-        ],
-        [TransactionStatus.PROCESSING]: [
-            <><Comment>// Received a webhook for an incoming payment.</Comment></>,
-            <><Keyword>const</Keyword> childSpan = tracer.<Func>startSpan</Func>(<String>'receive.payment'</String>, {'{'}</>,
-            <>  parentTraceId: <String>'{traceId ? `${traceId.slice(0, 18)}...` : ''}'</String></>,
-            <>{'});'}</>,
-            <>childSpan.<Func>setAttribute</Func>(<String>'recipient.email'</String>, <String>'{recipientEmail}'</String>);</>,
-            <>childSpan.<Func>setAttribute</Func>(<String>'payment.amount'</String>, <NumberVal>{amount.toFixed(2)}</NumberVal>);</>,
-            <>&nbsp;</>,
-            <><Comment>// Waiting for confirmation from the payment network.</Comment></>,
-            <><Keyword>const</Keyword> result = <Keyword>await</Keyword> <Func>waitForNetworkConfirmation</Func>(traceId);</>,
-        ],
-        [TransactionStatus.PENDING_CONFIRMATION]: [
-            <><Comment>// Network confirmation is taking longer than expected.</Comment></>,
-            <><Comment>// The sender's client has entered a PENDING state.</Comment></>,
-            <><Comment>// Our system continues to wait for a final status...</Comment></>,
-            <><Keyword>const</Keyword> result = <Keyword>await</Keyword> <Func>waitForNetworkConfirmation</Func>(traceId);</>,
-            <><span className="text-yellow-400">{'// -> Still awaiting promise resolution...'}</span></>,
-        ],
-        [TransactionStatus.SUCCESS]: [
-            <><Comment>// Network confirmation received: SUCCESS.</Comment></>,
-            <>childSpan.<Func>addEvent</Func>(<String>'network.confirmed.success'</String>);</>,
-            <><Keyword>const</Keyword> recipientAccount = <Keyword>await</Keyword> <Func>db.findAccount</Func>({'{'}email: <String>'{recipientEmail}'</String>{'}'});</>,
-            <>recipientAccount.balance += <NumberVal>{amount.toFixed(2)}</NumberVal>;</>,
-            <><Keyword>await</Keyword> recipientAccount.<Func>save</Func>();</>,
-            <>childSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
-            <>childSpan.<Func>end</Func>();</>,
-            <><Func>notifyRecipient</Func>(<String>'Payment received!'</String>);</>,
-        ],
-        [TransactionStatus.FAILED]: [
-            <><Comment>// Network confirmation received: FAILED.</Comment></>,
-            <>childSpan.<Func>addEvent</Func>(<String>'network.confirmed.failed'</String>);</>,
-            <>childSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String>, message: <String>'SenderCancelled'</String> {'}'});</>,
-            <>childSpan.<Func>end</Func>();</>,
-            <>&nbsp;</>,
-            <><Comment>// No funds are moved.</Comment></>,
-            <><Func>notifyRecipient</Func>(<String>'Incoming payment failed.'</String>);</>,
-        ],
-        [TransactionStatus.SUCCESS_AFTER_PENDING]: [
-            <><Comment>// Delayed network confirmation received: SUCCESS.</Comment></>,
-            <>childSpan.<Func>addEvent</Func>(<String>'network.confirmed.success.late'</String>);</>,
-            <><Keyword>const</Keyword> recipientAccount = <Keyword>await</Keyword> <Func>db.findAccount</Func>({'{'}email: <String>'{recipientEmail}'</String>{'}'});</>,
-            <>recipientAccount.balance += <NumberVal>{amount.toFixed(2)}</NumberVal>;</>,
-            <><Keyword>await</Keyword> recipientAccount.<Func>save</Func>();</>,
-            <>childSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
-            <>childSpan.<Func>end</Func>();</>,
-            <><Func>notifyRecipient</Func>(<String>'Payment received!'</String>);</>,
-        ],
-        [TransactionStatus.FAILED_AFTER_PENDING]: [
-            <><Comment>// Delayed network confirmation received: FAILED.</Comment></>,
-            <>childSpan.<Func>addEvent</Func>(<String>'network.confirmed.failed.late'</String>);</>,
-            <>childSpan.<Func>setStatus</Func>({'{'} code: <String>'ERROR'</String>, message: <String>'SenderCancelled'</String> {'}'});</>,
-            <>childSpan.<Func>end</Func>();</>,
-            <>&nbsp;</>,
-            <><Comment>// No funds are moved.</Comment></>,
-            <><Func>notifyRecipient</Func>(<String>'Incoming payment failed.'</String>);</>,
-        ]
-    }), [traceId, amount, recipientEmail]);
-
+    const codeSnippet = useMemo(() => [
+        /* 0*/ <><Comment>// Listening for incoming payment notifications via webhook...</Comment></>,
+        /* 1*/ <><Keyword>const</Keyword> childSpan = tracer.<Func>startSpan</Func>(<String>'receive.payment'</String>, {'{'} parentTraceId {'}'});</>,
+        /* 2*/ <>childSpan.<Func>setAttribute</Func>(<String>'recipient.email'</String>, <String>'{recipientEmail || '...'}'</String>);</>,
+        /* 3*/ <>&nbsp;</>,
+        /* 4*/ <><Comment>// Waiting for the payment network to confirm the transaction status.</Comment></>,
+        /* 5*/ <><Keyword>const</Keyword> result = <Keyword>await</Keyword> <Func>waitForNetworkConfirmation</Func>(traceId);</>,
+        /* 6*/ <>&nbsp;</>,
+        /* 7*/ <><Comment>// Network has responded with a final status.</Comment></>,
+        /* 8*/ <><Keyword>if</Keyword> (result.status === <String>'CONFIRMED'</String>) {'{'}</>,
+        /* 9*/ <>  childSpan.<Func>addEvent</Func>(<String>'network.confirmed.success'</String>);</>,
+        /*10*/ <>  <Keyword>const</Keyword> account = <Keyword>await</Keyword> <Func>db.findAccount</Func>(recipientEmail);</>,
+        /*11*/ <>  account.balance += <NumberVal>{amount > 0 ? amount.toFixed(2) : '...'}</NumberVal>;</>,
+        /*12*/ <>  <Keyword>await</Keyword> account.<Func>save</Func>();</>,
+        /*13*/ <>  <Func>notifyRecipient</Func>(<String>'Payment received!'</String>);</>,
+        /*14*/ <>{'} '} <Keyword>else</Keyword> {'{'}</>,
+        /*15*/ <>  childSpan.<Func>addEvent</Func>(<String>'network.confirmed.failed'</String>);</>,
+        /*16*/ <>  <Func>notifyRecipient</Func>(<String>'Incoming payment failed.'</String>);</>,
+        /*17*/ <>{'}'}</>,
+        /*18*/ <>&nbsp;</>,
+        /*19*/ <>childSpan.<Func>setStatus</Func>({'{'} code: <String>'OK'</String> {'}'});</>,
+        /*20*/ <>childSpan.<Func>end</Func>();</>,
+    ], [traceId, amount, recipientEmail]);
+    
     useEffect(() => {
-        const snippet = codeSnippets[status] || [];
-        const animationSpeed = ANIMATION_SPEEDS[status as keyof typeof ANIMATION_SPEEDS] || 500;
-        let timeoutId: ReturnType<typeof setTimeout>;
+        if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
 
-        const animateLine = (line: number) => {
-            if (line >= snippet.length) {
-                setCurrentLine(snippet.length - 1);
-                return;
-            }
-            setCurrentLine(line);
-            timeoutId = setTimeout(() => animateLine(line + 1), animationSpeed);
+        const playSequence = (lines: number[], speed: number) => {
+            let index = 0;
+            const run = () => {
+                if (index < lines.length) {
+                    setCurrentLine(lines[index]);
+                    index++;
+                } else {
+                    if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+                }
+            };
+            run();
+            animationIntervalRef.current = setInterval(run, speed);
         };
 
-        animateLine(0);
-        return () => clearTimeout(timeoutId);
-      }, [status, codeSnippets]);
+        const fastSuccessSequence = [1, 2, 5, 8, 9, 10, 11, 12, 13, 19, 20];
+        const finalSuccessSequence = [8, 9, 10, 11, 12, 13, 19, 20];
+        const fastFailSequence = [1, 2, 5, 8, 15, 16, 19, 20];
+        const finalFailSequence = [8, 15, 16, 19, 20];
 
-    const currentSnippet = codeSnippets[status as keyof typeof codeSnippets] || codeSnippets[TransactionStatus.IDLE];
+        switch (status) {
+            case TransactionStatus.IDLE:
+                setCurrentLine(0);
+                break;
+            case TransactionStatus.PROCESSING:
+                // For all cases, animate to the 'await' line and then hold.
+                playSequence([1, 2, 4, 5], 150);
+                break;
+            case TransactionStatus.PENDING_CONFIRMATION:
+                // Recipient just keeps waiting, so stay on the 'await' line.
+                setCurrentLine(5);
+                break;
+            case TransactionStatus.SUCCESS:
+                // Could be a fast success from random, or the final state for case1.
+                playSequence(fastSuccessSequence, 35);
+                break;
+            case TransactionStatus.SUCCESS_AFTER_PENDING:
+                // For case2 or a slow success from random.
+                playSequence(finalSuccessSequence, 35);
+                break;
+            case TransactionStatus.FAILED:
+                // For a fast fail from random.
+                playSequence(fastFailSequence, 35);
+                break;
+            case TransactionStatus.FAILED_AFTER_PENDING:
+                // For case3 or a slow fail from random.
+                playSequence(finalFailSequence, 35);
+                break;
+        }
+
+        return () => { if (animationIntervalRef.current) clearInterval(animationIntervalRef.current); };
+    }, [status, activeCase]);
     
+    // Effect to auto-scroll the code view
+    useEffect(() => {
+        if (codeContainerRef.current) {
+            const lineElement = codeContainerRef.current.children[currentLine] as HTMLElement;
+            if (lineElement) {
+                lineElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                });
+            }
+        }
+    }, [currentLine]);
+
     const renderStatusBox = () => {
         switch (status) {
             case TransactionStatus.IDLE:
@@ -180,23 +180,23 @@ export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status,
                         <p className="text-sm text-red-600 mt-1">The incoming payment could not be completed.</p>
                     </div>
                 );
-            default:
-                return (
-                    <div className="p-4 rounded-lg text-center mb-4 bg-gray-100 border border-gray-200 min-h-[124px] flex items-center justify-center">
-                        <p className="text-lg font-medium text-gray-500">Waiting for transaction...</p>
-                    </div>
-                );
+            default: return null;
         }
     };
-
 
     return (
         <div>
             {renderStatusBox()}
-            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto min-h-[268px]">
-                <code>
-                    {currentSnippet.map((line, index) => (
-                        <CodeLine key={index} isHighlighted={index === currentLine}>{line}</CodeLine>
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto h-80 flex flex-col">
+                <code ref={codeContainerRef} className="overflow-y-auto">
+                    {codeSnippet.map((line, index) => (
+                        <CodeLine 
+                            key={index} 
+                            isHighlighted={index === currentLine}
+                            isBlinking={status === TransactionStatus.PENDING_CONFIRMATION && index === currentLine}
+                        >
+                            {line}
+                        </CodeLine>
                     ))}
                 </code>
             </div>

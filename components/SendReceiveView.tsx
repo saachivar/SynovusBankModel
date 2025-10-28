@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
 import { RecipientTracerDisplay } from './RecipientTracerDisplay';
-import { TransactionStatus, PaymentResult } from '../types';
+import { TransactionStatus, PaymentResult, TestCase } from '../types';
 import { sendMoney as sendMoneyRandom } from '../services/sendMoneyService';
 import { sendMoney as sendMoneyCase1 } from '../cases/send-money-case-1';
 import { sendMoney as sendMoneyCase2 } from '../cases/send-money-case-2';
@@ -15,13 +15,11 @@ interface SendReceiveViewProps {
   onSendMoneyComplete: (fromId: string, recipient: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
 }
 
-type TestCase = 'random' | 'case1' | 'case2' | 'case3';
-
 const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'random', title: 'Random', description: '25% chance of a slow response (8-10s), 15% chance of failure.' },
-  { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 2 seconds. Watchdog will not trigger.' },
-  { id: 'case2', title: 'Slow Success', description: 'Guaranteed success in 9 seconds. Watchdog will trigger.' },
-  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure in 8 seconds. Watchdog will trigger.' },
+  { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 3-4 seconds. Watchdog will not trigger.' },
+  { id: 'case2', title: 'Slow Success', description: 'Guaranteed success between 9-13 seconds. Watchdog will trigger.' },
+  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
 ];
 
 export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSendMoneyComplete }) => {
@@ -149,14 +147,24 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
             {caseDetails.map(c => (<div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`} role="radio" aria-checked={activeCase === c.id} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}><h3 className="font-bold text-gray-800">{c.title}</h3><p className="text-sm text-gray-600 mt-1">{c.description}</p></div>))}
         </div>
       </fieldset>
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        {/* SENDER'S TERMINAL */}
         <div className="bg-white p-8 rounded-xl shadow-md">
           <h2 className="text-xl font-medium text-black mb-4">Sender Terminal</h2>
           {status === TransactionStatus.IDLE ? renderSendForm() : <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />}
         </div>
+
+        {/* RECIPIENT'S VIEW */}
         <div className="bg-white p-8 rounded-xl shadow-md">
           <h2 className="text-xl font-medium text-black mb-4">Recipient's View</h2>
-          <RecipientTracerDisplay status={status} traceId={traceId} amount={transactionAmount} recipientEmail={currentRecipient} />
+          <RecipientTracerDisplay status={status} traceId={traceId} amount={transactionAmount} recipientEmail={currentRecipient} activeCase={activeCase} />
+        </div>
+
+        {/* SENDER'S TRACER */}
+        <div className="lg:col-span-2 bg-white p-8 rounded-xl shadow-md">
+           <h2 className="text-xl font-medium text-black mb-4">Sender's Tracer</h2>
+           <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} />
         </div>
       </div>
     </div>

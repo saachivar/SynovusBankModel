@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
-import { TransactionStatus } from '../types';
+import { TransactionStatus, TestCase } from '../types';
 import { processPayment as processPaymentRandom } from '../services/paymentService';
 import { processPayment as processPaymentCase1 } from '../cases/case-1';
 import { processPayment as processPaymentCase2 } from '../cases/case-2';
@@ -15,13 +15,11 @@ interface PaymentsViewProps {
   onPaymentComplete: (fromId: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
 }
 
-type TestCase = 'random' | 'case1' | 'case2' | 'case3';
-
 const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'random', title: 'Random', description: '25% chance of a slow response (8-10s), 15% chance of failure.' },
-  { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 2 seconds. Watchdog will not trigger.' },
-  { id: 'case2', title: 'Slow Success', description: 'Guaranteed success in 9 seconds. Watchdog will trigger.' },
-  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure in 8 seconds. Watchdog will trigger.' },
+  { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 3-4 seconds. Watchdog will not trigger.' },
+  { id: 'case2', title: 'Slow Success', description: 'Guaranteed success between 9-13 seconds. Watchdog will trigger.' },
+  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
 ];
 
 export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentComplete }) => {
@@ -142,7 +140,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
             <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
           )}
         </div>
-        <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} />
+        <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} />
       </div>
     </div>
   );

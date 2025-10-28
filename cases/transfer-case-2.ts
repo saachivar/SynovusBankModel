@@ -8,8 +8,8 @@ export const processTransfer = (traceId: string, amount: number, fromAccountBala
   console.log(`[Mock BE - Transfer Case 2] Received transfer request. Trace ID: ${traceId}, Amount: $${amount}`);
 
   return new Promise((resolve) => {
-    // 9-second delay, guaranteed to trigger the 7s watchdog.
-    const delay = 9000;
+    // Random delay between 9.1s and 12.9s, guaranteed to trigger the 9s watchdog but finish before 13s.
+    const delay = Math.random() * 3800 + 9100;
 
     setTimeout(() => {
       console.log(`[Mock BE - Transfer Case 2] Responding with SUCCESS. Trace ID: ${traceId}`);

@@ -3,11 +3,12 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { PaymentsView } from './components/PaymentsView';
 import { AccountsView } from './components/AccountsView';
+import { ActivityView } from './components/ActivityView';
 import { TransfersView } from './components/TransfersView';
 import { SendReceiveView } from './components/SendReceiveView';
 import { Transaction, TransactionType } from './types';
 
-type Tab = 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS' | 'SEND_RECEIVE';
+type Tab = 'ACCOUNTS' | 'ACTIVITY' | 'PAYMENTS' | 'TRANSFERS' | 'SEND_RECEIVE';
 
 export interface Account {
   id: string;
@@ -134,7 +135,9 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'ACCOUNTS':
-        return <AccountsView accounts={accounts} transactions={transactionHistory} onRemediate={remediateTransaction} />;
+        return <AccountsView accounts={accounts} />;
+      case 'ACTIVITY':
+        return <ActivityView transactions={transactionHistory} onRemediate={remediateTransaction} />;
       case 'PAYMENTS':
         return <PaymentsView accounts={accounts} onPaymentComplete={handlePaymentCompletion} />;
       case 'TRANSFERS':

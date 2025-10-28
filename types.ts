@@ -16,6 +16,8 @@ export interface PaymentResult {
 
 export type TransactionType = 'PAYMENT' | 'TRANSFER' | 'P2P';
 
+export type TestCase = 'random' | 'case1' | 'case2' | 'case3';
+
 export interface Transaction {
   id: string;
   date: string;
