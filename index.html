@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏦</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tracer-Driven Watchdog Payment Demo</title>
+    <title>Tracer-Driven Payment Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -35,7 +35,7 @@
 </head>
   <body class="bg-white">
     <div id="root"></div>
-    <!-- Note the type change to "text/babel" -->
-    <script type="text/babel" data-type="module" src="./index.tsx"></script>
+    <!-- The data-presets attribute tells Babel how to compile the code -->
+    <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
   </body>
 </html>
