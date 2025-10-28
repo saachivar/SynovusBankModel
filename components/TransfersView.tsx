@@ -31,43 +31,6 @@ const generateTransactionId = () => {
     return result;
   };
 
-const playSound = (type: 'success' | 'failure') => {
-    if (typeof window === 'undefined') return;
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (!audioContext) return;
-    if (audioContext.state === 'suspended') audioContext.resume();
-
-    if (type === 'success') {
-        const gainNode = audioContext.createGain();
-        gainNode.connect(audioContext.destination);
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
-        const playNote = (freq: number, startTime: number) => {
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'sine';
-            oscillator.frequency.value = freq;
-            oscillator.connect(gainNode);
-            oscillator.start(audioContext.currentTime + startTime);
-            oscillator.stop(audioContext.currentTime + startTime + 0.1);
-        };
-        playNote(523.25, 0); playNote(659.25, 0.1); playNote(783.99, 0.2);
-    } else if (type === 'failure') {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.4);
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.4);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.4);
-    }
-};
-
 export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferComplete }) => {
     const [fromAccount, setFromAccount] = useState(accounts[0]?.id || '');
     const [toAccount, setToAccount] = useState(accounts[1]?.id || '');
@@ -87,14 +50,6 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         if (!fromAccount && accounts[0]) setFromAccount(accounts[0].id);
         if (!toAccount && accounts[1]) setToAccount(accounts[1].id);
     }, [accounts, fromAccount, toAccount]);
-
-    useEffect(() => {
-        const finalSuccess = status === TransactionStatus.SUCCESS || status === TransactionStatus.SUCCESS_AFTER_PENDING;
-        const finalFailure = status === TransactionStatus.FAILED || status === TransactionStatus.FAILED_AFTER_PENDING;
-    
-        if (finalSuccess) playSound('success');
-        else if (finalFailure) playSound('failure');
-    }, [status]);
 
      const addLogEntry = (source: 'FE' | 'BE', message: string, traceId?: string) => {
         const newEntry: LogEntry = {

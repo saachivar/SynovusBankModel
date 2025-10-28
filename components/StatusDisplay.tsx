@@ -1,4 +1,3 @@
-// FIX: Implement the StatusDisplay component to resolve parsing and rendering errors.
 import React from 'react';
 import { TransactionStatus } from '../types';
 
@@ -41,7 +40,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
         <div className="text-center">
           <SpinnerIcon className="mx-auto mb-4" />
           <h3 className="text-lg leading-6 font-medium text-gray-900">Processing Securely</h3>
-          <p className="mt-2 text-sm text-gray-500">Your transaction is being processed. Please wait.</p>
+          <p className="mt-2 text-sm text-gray-500">Your transaction is being securely processed. We will update the status here momentarily.</p>
         </div>
       );
       break;
@@ -49,8 +48,8 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
       content = (
         <div className="text-center">
           <SpinnerIcon className="mx-auto mb-4 text-yellow-500" />
-          <h3 className="text-lg leading-6 font-medium text-yellow-600">Confirmation Pending</h3>
-          <p className="mt-2 text-sm text-gray-500">Your payment is taking longer than usual. We've recorded your request and will not process a duplicate transaction. You can safely wait or close this screen; we'll update your Activity feed with the final status.</p>
+          <h3 className="text-lg leading-6 font-medium text-yellow-600">Payment Pending</h3>
+          <p className="mt-2 text-sm text-gray-500">Your payment is taking longer than expected to confirm. Your request has been secured and will not be duplicated. The final status will be available in your Activity feed.</p>
         </div>
       );
       break;
@@ -61,8 +60,8 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
             <CheckIcon />
           </div>
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Successful</h3>
-          <p className="mt-2 text-sm text-gray-500">Your payment has been completed successfully.</p>
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Completed</h3>
+          <p className="mt-2 text-sm text-gray-500">Your payment was completed successfully. Your records and balance have been updated.</p>
         </div>
       );
       break;
@@ -73,7 +72,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
               <XIcon />
             </div>
             <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Failed</h3>
-            <p className="mt-2 text-sm text-gray-500">The transaction failed. Your account has not been charged. Please try again.</p>
+            <p className="mt-2 text-sm text-gray-500">Your payment could not be processed. <strong>Your account has not been charged.</strong> Please verify your details and try again.</p>
           </div>
         );
         break;
@@ -83,8 +82,8 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({ status, traceId, o
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
             <XIcon />
           </div>
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Unconfirmed</h3>
-          <p className="mt-2 text-sm text-gray-500">The transaction could not be confirmed at this time. Your account has not been charged. Please check your Activity feed later or try again.</p>
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Failed</h3>
+          <p className="mt-2 text-sm text-gray-500">The payment could not be confirmed. <strong>Your account has not been charged.</strong> Please check your Activity feed for the final status.</p>
         </div>
       );
       break;

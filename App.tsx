@@ -45,8 +45,8 @@ const App: React.FC = () => {
 
     // Simulate a 3-second network call to check the status
     setTimeout(() => {
-        // Simulate a 50% chance of the transaction having actually succeeded
-        if (Math.random() < 0.5) {
+        // Simulate a 10% chance of the transaction having actually succeeded
+        if (Math.random() < 0.1) {
             console.log(`[Remediation] Reconciling transaction ${transactionId} as SUCCESSFUL.`);
 
             setTransactionHistory(prev => 

@@ -74,7 +74,8 @@ export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status,
             let index = 0;
             const run = () => {
                 if (index < lines.length) {
-                    setCurrentLine(lines[index]);
+                    const line = lines[index];
+                    setCurrentLine(line);
                     index++;
                 } else {
                     if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
@@ -94,27 +95,21 @@ export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status,
                 setCurrentLine(0);
                 break;
             case TransactionStatus.PROCESSING:
-                // For all cases, animate to the 'await' line and then hold.
                 playSequence([1, 2, 4, 5], 150);
                 break;
             case TransactionStatus.PENDING_CONFIRMATION:
-                // Recipient just keeps waiting, so stay on the 'await' line.
                 setCurrentLine(5);
                 break;
             case TransactionStatus.SUCCESS:
-                // Could be a fast success from random, or the final state for case1.
                 playSequence(fastSuccessSequence, 35);
                 break;
             case TransactionStatus.SUCCESS_AFTER_PENDING:
-                // For case2 or a slow success from random.
                 playSequence(finalSuccessSequence, 35);
                 break;
             case TransactionStatus.FAILED:
-                // For a fast fail from random.
                 playSequence(fastFailSequence, 35);
                 break;
             case TransactionStatus.FAILED_AFTER_PENDING:
-                // For case3 or a slow fail from random.
                 playSequence(finalFailSequence, 35);
                 break;
         }
@@ -188,6 +183,7 @@ export const RecipientTracerDisplay: React.FC<RecipientTracerProps> = ({ status,
         <div>
             {renderStatusBox()}
             <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto h-80 flex flex-col">
+                <h3 className="text-base text-white font-semibold mb-2">Recipient's Trace</h3>
                 <code ref={codeContainerRef} className="overflow-y-auto">
                     {codeSnippet.map((line, index) => (
                         <CodeLine 

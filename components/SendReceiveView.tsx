@@ -32,43 +32,6 @@ const generateTransactionId = () => {
     return result;
   };
 
-const playSound = (type: 'success' | 'failure') => {
-    if (typeof window === 'undefined') return;
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (!audioContext) return;
-    if (audioContext.state === 'suspended') audioContext.resume();
-
-    if (type === 'success') {
-        const gainNode = audioContext.createGain();
-        gainNode.connect(audioContext.destination);
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
-        const playNote = (freq: number, startTime: number) => {
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'sine';
-            oscillator.frequency.value = freq;
-            oscillator.connect(gainNode);
-            oscillator.start(audioContext.currentTime + startTime);
-            oscillator.stop(audioContext.currentTime + startTime + 0.1);
-        };
-        playNote(523.25, 0); playNote(659.25, 0.1); playNote(783.99, 0.2);
-    } else if (type === 'failure') {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.4);
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.4);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.4);
-    }
-};
-
 export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSendMoneyComplete }) => {
   const [status, setStatus] = useState<TransactionStatus>(TransactionStatus.IDLE);
   const [traceId, setTraceId] = useState<string>('');
@@ -92,14 +55,6 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
     }
   }, [accounts, fromAccount]);
   
-  useEffect(() => {
-    const finalSuccess = status === TransactionStatus.SUCCESS || status === TransactionStatus.SUCCESS_AFTER_PENDING;
-    const finalFailure = status === TransactionStatus.FAILED || status === TransactionStatus.FAILED_AFTER_PENDING;
-
-    if (finalSuccess) playSound('success');
-    else if (finalFailure) playSound('failure');
-  }, [status]);
-
   const addLogEntry = (source: 'FE' | 'BE', message: string, traceId?: string) => {
     const newEntry: LogEntry = {
       timestamp: new Date().toLocaleTimeString(),
@@ -249,11 +204,12 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
       </fieldset>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col gap-8">
           <div className="bg-white p-8 rounded-xl shadow-md">
             <h2 className="text-xl font-medium text-black mb-4">Sender Terminal</h2>
             {status === TransactionStatus.IDLE ? renderSendForm() : <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />}
           </div>
+          <EventLog logs={eventLog} />
         </div>
 
         <div className="lg:col-span-1">
@@ -263,13 +219,10 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = ({ accounts, onSe
           </div>
         </div>
 
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-2">
            <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
         </div>
 
-        <div className="lg:col-span-1">
-           <EventLog logs={eventLog} />
-        </div>
       </div>
     </div>
   );
