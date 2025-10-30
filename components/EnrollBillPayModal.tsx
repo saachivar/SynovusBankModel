@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Account } from '../App';
+import { Account } from '../types.ts';
 
 interface EnrollBillPayModalProps {
   accounts: Account[];

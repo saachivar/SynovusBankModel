@@ -4,14 +4,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { StatusDisplay } from './StatusDisplay.tsx';
 import { TracerDisplay } from './TracerDisplay.tsx';
 import { EventLog } from './EventLog.tsx';
-import { TransactionStatus, PaymentResult, TestCase, LogEntry, Transaction } from '../types.ts';
+import { TransactionStatus, PaymentResult, TestCase, LogEntry, Transaction, Account } from '../types.ts';
 import { processTransfer as processTransferRandom } from '../services/transferService.ts';
 import { processTransfer as processTransferCase1 } from '../cases/transfer-case-1.ts';
 import { processTransfer as processTransferCase2 } from '../cases/transfer-case-2.ts';
 import { processTransfer as processTransferCase3 } from '../cases/transfer-case-3.ts';
 import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
-// Correcting import path for Account type
-import { Account } from '../App.tsx'; // Import the shared Account type
 import { RemediationControl } from './RemediationControl.tsx';
 
 interface TransfersViewProps {

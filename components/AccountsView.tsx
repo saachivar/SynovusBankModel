@@ -1,6 +1,5 @@
-import React from 'react';
-// Correcting import path for Account and Tab types
-import { Account, Tab } from '../App.tsx';
+import React, { useState, useRef, useEffect } from 'react';
+import { Account, Tab } from '../types.ts';
 
 interface AccountsViewProps {
     accounts: Account[];
@@ -11,6 +10,19 @@ interface AccountsViewProps {
 }
 
 export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate, onShowZelle, onAddAccount, onEnrollInBillPay }) => {
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+        setIsOptionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -20,6 +32,11 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate
     }).format(amount);
   };
   
+  const handleOptionClick = (optionName: string) => {
+    alert(`${optionName} clicked. This feature is for demonstration only.`);
+    setIsOptionsOpen(false);
+  };
+
   const toolButtonBase = "w-full flex justify-between items-center text-left py-3 px-4 border rounded-lg transition-all duration-200 shadow-sm text-sm font-medium";
 
   return (
@@ -27,12 +44,31 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate
       <div className="bg-white p-6 md:p-8 shadow-lg rounded-lg z-10 relative">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">My Accounts</h2>
-          <a href="#" className="text-sm font-semibold text-synovus-cyan-button flex items-center">
-            Account Options
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </a>
+          <div className="relative" ref={optionsRef}>
+            <button onClick={() => setIsOptionsOpen(!isOptionsOpen)} className="text-sm font-semibold text-synovus-cyan-button flex items-center">
+              Account Options
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ml-1 transition-transform ${isOptionsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isOptionsOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border text-gray-800 animate-fade-in-down">
+                    <button onClick={() => handleOptionClick('Order Checks')} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Order Checks</button>
+                    <button onClick={() => handleOptionClick('View Statements')} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Statements</button>
+                    <button onClick={() => handleOptionClick('Stop Payment')} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Stop Payment</button>
+                    <button onClick={() => handleOptionClick('Account Details')} className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Account Details</button>
+                </div>
+            )}
+            <style>{`
+                @keyframes fade-in-down {
+                    0% { opacity: 0; transform: translateY(-10px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in-down {
+                    animation: fade-in-down 0.2s ease-out forwards;
+                }
+            `}</style>
+          </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 xl:gap-12 items-start">
             <div className="lg:col-span-2">
@@ -88,12 +124,12 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-synovus-cyan-button" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                         <span className="ml-3 text-sm text-gray-700 font-medium">You have 0 unread messages</span>
                     </button>
-                     <button className={`${toolButtonBase} bg-white hover:border-gray-300 border-gray-200`}>
+                    <button onClick={() => onNavigate('INSIGHTS')} className={`${toolButtonBase} bg-white text-gray-700 hover:border-gray-300 border-gray-200`}>
                         <div className="flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-synovus-cyan-button" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                            <span className="ml-3 text-sm text-gray-700 font-medium">Insights</span>
+                            <span className="ml-3 text-sm text-gray-700 font-medium">View Financial Insights</span>
                         </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                  </div>
             </div>

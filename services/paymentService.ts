@@ -1,4 +1,5 @@
 import { PaymentResult } from '../types.ts';
+import { WATCHDOG_TIMEOUT_MS, LIKELY_TO_FAIL_THRESHOLD_MS } from '../constants.ts';
 
 /**
  * Simulates a backend API call for payment processing.
@@ -16,21 +17,29 @@ export const processPayment = (traceId: string, amount: number, fromAccountBalan
         return;
     }
 
-    const isSlow = Math.random() < 0.25; // 25% chance of a slow response
-    const delay = isSlow
-      ? Math.random() * 2000 + 8000 // 8-10 seconds delay (will trigger watchdog)
-      : Math.random() * 3000 + 1000; // 1-4 seconds delay (won't trigger watchdog)
+    const random = Math.random();
+    let delay;
+    let isSuccess = true;
 
-    const isSuccess = Math.random() < 0.85; // 85% chance of success overall
+    if (random < 0.75) { // 75% chance of fast success
+      // FAST PATH: 1-4 seconds, always success
+      delay = Math.random() * 3000 + 1000;
+      console.log(`[Mock BE] Path: Fast Success. Delay: ${delay.toFixed(0)}ms`);
+    } else if (random < 0.90) { // 15% chance of slow success
+      // SLOW SUCCESS PATH: Triggers watchdog, but before red threshold. Always success.
+      delay = Math.random() * (LIKELY_TO_FAIL_THRESHOLD_MS - WATCHDOG_TIMEOUT_MS - 100) + WATCHDOG_TIMEOUT_MS + 100;
+      console.log(`[Mock BE] Path: Slow Success. Delay: ${delay.toFixed(0)}ms`);
+    } else { // 10% chance of very slow path (potential failure)
+      // VERY SLOW PATH: Triggers red threshold, might fail.
+      delay = Math.random() * 1000 + LIKELY_TO_FAIL_THRESHOLD_MS;
+      isSuccess = Math.random() < 0.4; // 40% chance of success if very slow
+      console.log(`[Mock BE] Path: Very Slow (Potential Fail). Delay: ${delay.toFixed(0)}ms. Will succeed: ${isSuccess}`);
+    }
 
     setTimeout(() => {
-      if (isSuccess) {
-        console.log(`[Mock BE] Responding with SUCCESS. Trace ID: ${traceId}`);
-        resolve({ status: 'SUCCESS', traceId });
-      } else {
-        console.log(`[Mock BE] Responding with FAILED. Trace ID: ${traceId}`);
-        resolve({ status: 'FAILED', traceId });
-      }
+        const status = isSuccess ? 'SUCCESS' : 'FAILED';
+        console.log(`[Mock BE] Responding with ${status}. Trace ID: ${traceId}`);
+        resolve({ status, traceId });
     }, delay);
   });
 };

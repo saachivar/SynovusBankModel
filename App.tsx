@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Header } from './components/Header.tsx';
+import { Header, AlertBannerType } from './components/Header.tsx';
 import { Footer } from './components/Footer.tsx';
 import { AccountsView } from './components/AccountsView.tsx';
 import { PaymentsView } from './components/PaymentsView.tsx';
@@ -10,20 +10,12 @@ import { PlanningView } from './components/PlanningView.tsx';
 import { FaqsSupportView } from './components/FaqsSupportView.tsx';
 import { RemediationTracerModal } from './components/RemediationTracerModal.tsx';
 import { RemediationResultModal } from './components/RemediationResultModal.tsx';
-import { AlertsModal } from './components/AlertsModal.tsx';
 import { AddAccountModal } from './components/AddAccountModal.tsx';
 import { ApplicationSubmittedModal } from './components/ApplicationSubmittedModal.tsx';
 import { EnrollBillPayModal } from './components/EnrollBillPayModal.tsx';
 import { EnrollmentCompleteModal } from './components/EnrollmentCompleteModal.tsx';
-import { Transaction, Recipient } from './types.ts';
-
-export type Tab = 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS' | 'INSIGHTS' | 'PLANNING' | 'FAQS_SUPPORT';
-
-export interface Account {
-  id: string;
-  name: string;
-  balance: number;
-}
+import { LoginView } from './components/LoginView.tsx';
+import { Transaction, Recipient, Tab, Account } from './types.ts';
 
 const initialAccounts: Account[] = [
     { id: 'acc-1', name: 'Synovus Checking (...4321)', balance: 12532.89 },
@@ -62,7 +54,10 @@ const initialTransactions: Transaction[] = [
     }
 ];
 
+
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('ACCOUNTS');
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
   const [recipients] = useState<Recipient[]>(initialRecipients);
@@ -70,11 +65,39 @@ function App() {
   const [remediationTransaction, setRemediationTransaction] = useState<Transaction | null>(null);
   const [remediationResult, setRemediationResult] = useState<{ status: 'SUCCESS' | 'FAILED'; tx: Transaction } | null>(null);
   const [showZelle, setShowZelle] = useState(false);
-  const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [showAppSubmittedModal, setShowAppSubmittedModal] = useState(false);
   const [showEnrollBillPayModal, setShowEnrollBillPayModal] = useState(false);
   const [showEnrollmentCompleteModal, setShowEnrollmentCompleteModal] = useState(false);
+
+  const initialAlerts: AlertBannerType[] = [
+    {
+      id: 1,
+      visible: true,
+      type: 'reminder',
+      title: 'Payment Reminder',
+      message: 'Your Synovus Visa Signature card payment is due in 5 days.',
+      actionText: 'Make a Payment',
+      action: () => {
+        setActiveTab('PAYMENTS');
+      },
+    },
+    {
+      id: 2,
+      visible: true,
+      type: 'info',
+      title: 'Go Paperless',
+      message: 'Simplify your life and help the environment. Switch to paperless statements today.',
+      actionText: 'Learn More',
+      action: () => alert('This would navigate to the paperless statements settings page.'),
+    },
+  ];
+
+  const [alertBanners, setAlertBanners] = useState<AlertBannerType[]>(initialAlerts);
+
+  const handleDismissAlert = (id: number) => {
+    setAlertBanners(prev => prev.map(alert => alert.id === id ? { ...alert, visible: false } : alert));
+  };
 
   const handleNavigate = (tab: Tab) => {
     setActiveTab(tab);
@@ -227,6 +250,15 @@ function App() {
     setActiveTab('PAYMENTS');
   };
 
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    setActiveTab('ACCOUNTS'); // Reset to default view on login
+  };
+  
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'ACCOUNTS':
@@ -246,13 +278,19 @@ function App() {
     }
   };
 
+  if (!isAuthenticated) {
+    return <LoginView onLogin={handleLogin} />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 font-sans">
       <Header
         activeTab={activeTab}
         onNavigate={handleNavigate}
-        userName="User"
-        onShowAlerts={() => setShowAlertsModal(true)}
+        userName="SynovusTracer"
+        alerts={alertBanners}
+        onDismissAlert={handleDismissAlert}
+        onLogout={handleLogout}
       />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
         {renderContent()}
@@ -273,7 +311,6 @@ function App() {
       )}
       <RemediationTracerModal transaction={remediationTransaction} />
       <RemediationResultModal result={remediationResult} onClose={() => setRemediationResult(null)} />
-      {showAlertsModal && <AlertsModal onClose={() => setShowAlertsModal(false)} />}
       {showAddAccountModal && <AddAccountModal onClose={() => setShowAddAccountModal(false)} onSubmit={handleAddAccountSubmit} />}
       {showAppSubmittedModal && <ApplicationSubmittedModal onClose={() => setShowAppSubmittedModal(false)} />}
       {showEnrollBillPayModal && <EnrollBillPayModal accounts={accounts} onClose={() => setShowEnrollBillPayModal(false)} onSubmit={handleEnrollBillPaySubmit} />}

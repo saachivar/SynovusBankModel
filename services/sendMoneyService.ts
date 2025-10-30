@@ -1,4 +1,5 @@
 import { PaymentResult } from '../types.ts';
+import { WATCHDOG_TIMEOUT_MS, LIKELY_TO_FAIL_THRESHOLD_MS } from '../constants.ts';
 
 /**
  * Simulates a backend API call for sending money (P2P).
@@ -9,30 +10,29 @@ export const sendMoney = (traceId: string, amount: number): Promise<PaymentResul
   console.log(`[Mock BE - P2P] Received send money request. Trace ID: ${traceId}, Amount: $${amount}`);
 
   return new Promise((resolve) => {
-    const isSlow = Math.random() < 0.25; // 25% chance of a slow response
+    const random = Math.random();
+    let delay;
+    let isSuccess = true;
 
-    if (!isSlow) {
-      // FAST PATH: This should always succeed in the P2P random case,
-      // as the most common fast-fail reason (insufficient funds) is checked by the client.
-      const delay = Math.random() * 3000 + 1000; // 1-4 seconds delay
-      setTimeout(() => {
-        console.log(`[Mock BE - P2P] Responding with SUCCESS. Trace ID: ${traceId}`);
-        resolve({ status: 'SUCCESS', traceId });
-      }, delay);
-    } else {
-      // SLOW PATH: This can still fail due to network timeouts or other backend issues.
-      const delay = Math.random() * 2000 + 8000; // 8-10 seconds delay (will trigger watchdog)
-      const isSuccess = Math.random() < 0.5; // If it's slow, give it a 50/50 chance of resolving.
-
-      setTimeout(() => {
-        if (isSuccess) {
-          console.log(`[Mock BE - P2P] Responding with SUCCESS. Trace ID: ${traceId}`);
-          resolve({ status: 'SUCCESS', traceId });
-        } else {
-          console.log(`[Mock BE - P2P] Responding with FAILED. Trace ID: ${traceId}`);
-          resolve({ status: 'FAILED', traceId });
-        }
-      }, delay);
+    if (random < 0.75) { // 75% chance of fast success
+      // FAST PATH: 1-4 seconds, always success
+      delay = Math.random() * 3000 + 1000;
+      console.log(`[Mock BE - P2P] Path: Fast Success. Delay: ${delay.toFixed(0)}ms`);
+    } else if (random < 0.90) { // 15% chance of slow success
+      // SLOW SUCCESS PATH: Triggers watchdog, but before red threshold. Always success.
+      delay = Math.random() * (LIKELY_TO_FAIL_THRESHOLD_MS - WATCHDOG_TIMEOUT_MS - 100) + WATCHDOG_TIMEOUT_MS + 100;
+      console.log(`[Mock BE - P2P] Path: Slow Success. Delay: ${delay.toFixed(0)}ms`);
+    } else { // 10% chance of very slow path (potential failure)
+      // VERY SLOW PATH: Triggers red threshold, might fail.
+      delay = Math.random() * 1000 + LIKELY_TO_FAIL_THRESHOLD_MS;
+      isSuccess = Math.random() < 0.5; // If it's very slow, 50/50 chance.
+      console.log(`[Mock BE - P2P] Path: Very Slow (Potential Fail). Delay: ${delay.toFixed(0)}ms. Will succeed: ${isSuccess}`);
     }
+    
+    setTimeout(() => {
+        const status = isSuccess ? 'SUCCESS' : 'FAILED';
+        console.log(`[Mock BE - P2P] Responding with ${status}. Trace ID: ${traceId}`);
+        resolve({ status, traceId });
+    }, delay);
   });
 };

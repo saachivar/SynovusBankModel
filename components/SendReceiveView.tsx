@@ -5,13 +5,12 @@ import { StatusDisplay } from './StatusDisplay.tsx';
 import { TracerDisplay } from './TracerDisplay.tsx';
 import { RecipientTracerDisplay } from './RecipientTracerDisplay.tsx';
 import { EventLog } from './EventLog.tsx';
-import { TransactionStatus, PaymentResult, TestCase, LogEntry, Recipient, Transaction } from '../types.ts';
+import { TransactionStatus, PaymentResult, TestCase, LogEntry, Recipient, Transaction, Account } from '../types.ts';
 import { sendMoney as sendMoneyRandom } from '../services/sendMoneyService.ts';
 import { sendMoney as sendMoneyCase1 } from '../cases/send-money-case-1.ts';
 import { sendMoney as sendMoneyCase2 } from '../cases/send-money-case-2.ts';
 import { sendMoney as sendMoneyCase3 } from '../cases/send-money-case-3.ts';
 import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
-import { Account } from '../App.tsx';
 import { RemediationControl } from './RemediationControl.tsx';
 
 interface SendReceiveViewProps {
@@ -82,8 +81,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
     );
     const isSearchedRecipient = !recipients.some(r => r.contact === recipientContact);
     
-    const recipientDetails = recipients.find(r => r.contact === recipientContact);
-    const recipientDisplayName = recipientDetails ? recipientDetails.name : recipientContact;
+    const recipientDisplayName = recipients.find(r => r.contact === recipientContact)?.name || recipientContact;
 
     setPaymentToVerify({ recipient: recipientDisplayName, amount });
 
@@ -203,7 +201,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
             </div>
         </fieldset>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="flex flex-col gap-8">
                 <div className="bg-gray-50 p-8 rounded-xl shadow-inner border">
                     {status === TransactionStatus.IDLE ? (
@@ -212,17 +210,12 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
                         <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />
                     )}
                 </div>
-                <div className="flex flex-col gap-6">
-                    <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
-                    <RemediationControl remediableTx={remediableTx} onRemediate={onRemediate} />
-                </div>
+                <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
+                <RemediationControl remediableTx={remediableTx} onRemediate={onRemediate} />
             </div>
             
             <div className="flex flex-col gap-8">
-                <div className="bg-gray-50 p-8 rounded-xl shadow-inner border">
-                    <h2 className="text-xl font-medium text-black mb-4">Recipient's View</h2>
-                    <RecipientTracerDisplay status={status} traceId={traceId} amount={transactionAmount} recipientEmail={currentRecipient} activeCase={activeCase} />
-                </div>
+                <RecipientTracerDisplay status={status} traceId={traceId} amount={transactionAmount} recipientEmail={currentRecipient} activeCase={activeCase} />
                 <EventLog logs={eventLog} />
             </div>
         </div>
@@ -261,15 +254,15 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <label htmlFor="recipient-send" className="block text-sm font-medium text-gray-700">Select Recipient</label>
+                <label htmlFor="recipient-send" className="block text-sm font-medium text-gray-700">Select or Enter Recipient</label>
                 <div className="mt-1 flex items-center bg-gray-100 border-b-2 border-gray-300 focus-within:border-synovus-red p-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
                     <input type="text" id="recipient-send" value={recipient} onChange={e => setRecipient(e.target.value)} className="bg-transparent border-0 focus:ring-0 block w-full ml-2 text-gray-900" placeholder="Name, email, mobile #" />
                 </div>
             </div>
-             <div>
-                <h3 className="text-xs font-semibold text-gray-500 mt-4 uppercase">Recent Recipients</h3>
-                <div className="mt-2 space-y-1">
+             <div className="space-y-3 pt-2">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase text-center">Select Recipient</h3>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
                     {recipients.map(r => (
                         <button type="button" key={r.id} onClick={() => setRecipient(r.contact)} className="w-full flex items-center p-2 rounded-md hover:bg-gray-100 text-left">
                             <span className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-200 text-sm font-bold text-gray-600">{r.initials}</span>
@@ -289,11 +282,11 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
                 </div>
             </div>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-            <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Send Money</button>
+            <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Review & Send</button>
         </form>
     );
   };
-
+  
   const RequestForm: React.FC = () => {
     const [recipient, setRecipient] = useState<Recipient | null>(null);
     const [amount, setAmount] = useState('20.00');
@@ -477,6 +470,108 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
         </div>
     );
   };
+
+  const SettingsTab: React.FC<{ accounts: Account[] }> = ({ accounts }) => {
+    const [primaryAccountId, setPrimaryAccountId] = useState(accounts[0]?.id || '');
+    const [email, setEmail] = useState('user@email.com');
+    const [phone, setPhone] = useState('(555) 555-5555');
+    const [requirePin, setRequirePin] = useState(true);
+    const [showConfirmation, setShowConfirmation] = useState(false);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        // Simulate saving
+        setShowConfirmation(true);
+        setTimeout(() => setShowConfirmation(false), 3000);
+    };
+
+    const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+        <svg className={`h-5 w-5 text-green-500 ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+        </svg>
+    );
+
+    return (
+        <div className="max-w-3xl mx-auto mt-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Profile Information Section */}
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Profile Information</h2>
+                    <div className="space-y-4">
+                        {/* Email */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500">Registered Email</label>
+                            <div className="flex items-center justify-between">
+                                <p className="text-gray-800">{email}</p>
+                                <button type="button" className="text-sm font-semibold text-synovus-cyan-button hover:underline">Change</button>
+                            </div>
+                        </div>
+                        {/* Phone */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500">Registered Mobile Number</label>
+                             <div className="flex items-center justify-between">
+                                <p className="text-gray-800">{phone}</p>
+                                <button type="button" className="text-sm font-semibold text-synovus-cyan-button hover:underline">Change</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Primary Account Section */}
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Primary Account</h2>
+                    <p className="text-sm text-gray-600 mb-3">Select the default account for sending and receiving money.</p>
+                    <div className="space-y-2">
+                        {accounts.map(account => (
+                            <label key={account.id} className="flex items-center p-3 border rounded-md cursor-pointer has-[:checked]:bg-red-50 has-[:checked]:border-synovus-red">
+                                <input
+                                    type="radio"
+                                    name="primary-account"
+                                    value={account.id}
+                                    checked={primaryAccountId === account.id}
+                                    onChange={() => setPrimaryAccountId(account.id)}
+                                    className="h-4 w-4 text-synovus-red focus:ring-synovus-red border-gray-300"
+                                />
+                                <span className="ml-3 text-sm font-medium text-gray-800">{account.name}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                 {/* Security Section */}
+                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 className="text-lg font-bold text-gray-800 mb-4">Security</h2>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-gray-800">Require PIN</p>
+                            <p className="text-sm text-gray-600">Require PIN entry for payments over $100.</p>
+                        </div>
+                        <button 
+                            type="button" 
+                            onClick={() => setRequirePin(!requirePin)}
+                            className={`${requirePin ? 'bg-synovus-red' : 'bg-gray-200'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors`}
+                        >
+                            <span className={`${requirePin ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`}/>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Save Button & Confirmation */}
+                <div className="flex items-center justify-end space-x-4">
+                    {showConfirmation && (
+                        <div className="flex items-center text-green-600">
+                            <CheckIcon />
+                            <span className="ml-2 text-sm font-semibold">Settings saved!</span>
+                        </div>
+                    )}
+                    <button type="submit" className="py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-synovus-blue hover:bg-opacity-90">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+  };
   
    const XIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg className={`h-4 w-4 text-gray-400 ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -500,7 +595,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
       case 'request': return <RequestForm />;
       case 'split': return <SplitForm />;
       case 'activity': return <ActivityTab />;
-      case 'settings': return <div className="text-center mt-8 text-gray-500">Settings page placeholder.</div>;
+      case 'settings': return <SettingsTab accounts={accounts} />;
       default: return null;
     }
   };
@@ -683,8 +778,7 @@ const VerifyInformationModal: React.FC<VerifyInformationModalProps> = ({ recipie
                 <div className="my-6 flex justify-center">
                     <VerifyInformationIcon />
                 </div>
-                <p className="text-gray-700">You're sending via Zelle® QR Code</p>
-                <p className="text-sm text-gray-600 mt-2">The QR Code is enrolled as</p>
+                <p className="text-gray-700">Please confirm you want to send money to:</p>
                 <p className="font-bold text-xl text-gray-900 my-2 break-all">{recipientName}</p>
                 <p className="text-sm text-gray-600">If this looks right to you, select Continue.</p>
                 <div className="mt-8 flex flex-col sm:flex-row-reverse gap-3">

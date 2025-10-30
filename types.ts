@@ -49,3 +49,11 @@ export interface LogEntry {
   message: string;
   traceId?: string;
 }
+
+export type Tab = 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS' | 'INSIGHTS' | 'PLANNING' | 'FAQS_SUPPORT';
+
+export interface Account {
+  id: string;
+  name: string;
+  balance: number;
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { TransactionStatus, TestCase } from '../types.ts';
-import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
+import { WATCHDOG_TIMEOUT_MS, LIKELY_TO_FAIL_THRESHOLD_MS } from '../constants.ts';
 
 // Helper components for syntax highlighting
 const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean, isBlinking?: boolean }> = ({ children, isHighlighted, isBlinking }) => (
@@ -23,7 +23,6 @@ interface TracerDisplayProps {
     onLog: (line: number) => void;
 }
 
-const LIKELY_TO_FAIL_THRESHOLD_S = 13;
 const MAX_VISUAL_TIME_S = 14;
 
 export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, amount, activeCase, onLog }) => {
@@ -35,6 +34,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
     const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const codeContainerRef = useRef<HTMLElement | null>(null);
     const watchdogThreshold = useMemo(() => WATCHDOG_TIMEOUT_MS / 1000, []);
+    const likelyToFailThreshold = useMemo(() => LIKELY_TO_FAIL_THRESHOLD_MS / 1000, []);
 
     // Effect to manage the master timer for elapsedTime
     useEffect(() => {
@@ -165,7 +165,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
 
     const progressPercentage = status === TransactionStatus.IDLE ? 0 : Math.min((elapsedTime / MAX_VISUAL_TIME_S) * 100, 100);
     const getProgressBarColor = () => {
-        if (elapsedTime > LIKELY_TO_FAIL_THRESHOLD_S) return 'bg-red-600';
+        if (elapsedTime > likelyToFailThreshold) return 'bg-red-600';
         if (elapsedTime > watchdogThreshold) return 'bg-yellow-500';
         return 'bg-sky-500';
     };
@@ -178,7 +178,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
                 <div className="mb-8">
                     <div className="flex justify-between items-center mb-1">
                         <span className="text-xs font-semibold text-gray-400">WATCHDOG TIMER</span>
-                        <span className={`text-sm font-bold transition-colors ${elapsedTime > LIKELY_TO_FAIL_THRESHOLD_S ? 'text-red-500' : isPending ? 'text-yellow-400' : 'text-gray-300'}`}>
+                        <span className={`text-sm font-bold transition-colors ${elapsedTime > likelyToFailThreshold ? 'text-red-500' : isPending ? 'text-yellow-400' : 'text-gray-300'}`}>
                            {elapsedTime.toFixed(2)}s / {MAX_VISUAL_TIME_S.toFixed(1)}s
                         </span>
                     </div>
@@ -196,10 +196,10 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
                         </div>
                         <div 
                             className="absolute -top-1 -bottom-1 w-px bg-red-500"
-                            style={{ left: `${(LIKELY_TO_FAIL_THRESHOLD_S / MAX_VISUAL_TIME_S) * 100}%` }}
-                            title={`High-Risk Threshold: ${LIKELY_TO_FAIL_THRESHOLD_S}s`}
+                            style={{ left: `${(likelyToFailThreshold / MAX_VISUAL_TIME_S) * 100}%` }}
+                            title={`High-Risk Threshold: ${likelyToFailThreshold}s`}
                         >
-                             <div className="absolute -bottom-5 -translate-x-1/2 text-red-500 text-xs font-bold">{LIKELY_TO_FAIL_THRESHOLD_S}s</div>
+                             <div className="absolute -bottom-5 -translate-x-1/2 text-red-500 text-xs font-bold">{likelyToFailThreshold}s</div>
                         </div>
                     </div>
                 </div>
