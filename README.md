@@ -67,3 +67,43 @@ When a transaction is slow and ultimately fails (the "Slow Failure" test case), 
 - **Styling:** Tailwind CSS
 - **Build:** In-browser compilation via Babel (for demo purposes). No local build step is required.
 - **Backend:** All backend logic is simulated client-side using `Promise` and `setTimeout` to control response times and outcomes deterministically.
+
+---
+
+## Running Locally
+
+This project is set up to run directly in the browser without any build steps or package installations.
+
+1.  **Clone or Download the Code:**
+    Make sure you have all the project files (`index.html`, `index.tsx`, `App.tsx`, etc.) in a single directory.
+
+2.  **Start a Local Web Server:**
+    Since the application uses ES modules (`import`), you need to serve the files from a local web server. You cannot just open `index.html` directly in your browser from the file system (i.e., `file:///...`).
+
+    Here are two simple ways to start a server:
+
+    **Option A: Using Python (usually pre-installed on macOS/Linux)**
+    - Open your terminal or command prompt.
+    - Navigate to the project directory.
+    - Run the following command:
+      ```bash
+      # For Python 3
+      python3 -m http.server
+      
+      # For Python 2
+      python -m SimpleHTTPServer
+      ```
+
+    **Option B: Using Node.js/npx**
+    - Make sure you have Node.js installed.
+    - Open your terminal or command prompt.
+    - Navigate to the project directory.
+    - Run the following command (this uses `npx` to run the package without installing it globally):
+      ```bash
+      npx http-server
+      ```
+
+3.  **Open in Browser:**
+    Once the server is running, it will typically print a local address in your terminal (e.g., `Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/)`).
+
+    Open your web browser and go to **`http://localhost:8000`** (or whatever port the server indicates). The application should load.
