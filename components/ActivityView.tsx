@@ -1,3 +1,5 @@
+// components/ActivityView.tsx
+
 import React from 'react';
 import { Transaction } from '../types';
 
@@ -8,93 +10,91 @@ interface ActivityViewProps {
 
 export const ActivityView: React.FC<ActivityViewProps> = ({ transactions, onRemediate }) => {
   const formatCurrency = (amount: number) => {
-    const isNegative = amount < 0;
-    const formattedAmount = new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(Math.abs(amount));
-
-    return isNegative ? `-${formattedAmount}` : formattedAmount;
   };
+  
+  const pendingTransactions = transactions.filter(tx => tx.status === 'PENDING');
+  const pastTransactions = transactions.filter(tx => tx.status === 'SUCCESS' || tx.status === 'FAILED');
 
   const isRemediatable = (transaction: Transaction): boolean => {
-    if (transaction.status !== 'FAILED') return false;
-    // P2P payments are considered final and not remediable in this demo
-    if (transaction.type === 'P2P') return false;
-    return true;
-  }
+    return transaction.status === 'FAILED' && !!transaction.wasPending && !transaction.remediationAttempted;
+  };
 
-  return (
-    <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-      <div className="p-8">
-        <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-synovus-dark-gray">Transaction Activity</h1>
-            <p className="mt-4 text-gray-600">
-              A detailed history of all your recent transactions.
-            </p>
-        </div>
+  const TransactionCard: React.FC<{ tx: Transaction }> = ({ tx }) => {
+    let title: string = tx.type;
+    let subtext = tx.description;
+    let amountDisplay = formatCurrency(tx.amount);
+    
+    switch (tx.type) {
+        case 'P2P':
+            title = `PAYMENT ${tx.status}`;
+            break;
+        case 'PAYMENT':
+            title = `BILL PAY ${tx.status}`;
+            break;
+        case 'TRANSFER':
+            title = `TRANSFER ${tx.status}`;
+            break;
+        case 'REQUEST_SENT':
+            title = 'REQUEST SENT';
+            subtext = `You requested from ${tx.recipient?.name}`;
+            break;
+        case 'SPLIT_SENT':
+            title = 'SPLIT SENT';
+            const numOthers = (tx.participants?.length ?? 0);
+            subtext = `You and ${numOthers} other${numOthers !== 1 ? 's' : ''}`;
+            break;
+    }
 
-        <div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Transaction History</h2>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Date
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Description
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Amount
-                            </th>
-                             <th scope="col" className="relative px-6 py-3">
-                                <span className="sr-only">Actions</span>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {transactions.length > 0 ? (
-                            transactions.map((transaction) => (
-                                <tr key={transaction.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.date}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{transaction.description}</td>
-                                    {transaction.status === 'FAILED' ? (
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-yellow-500" title={`Attempted amount: ${formatCurrency(transaction.amount)}`}>
-                                            <span>{formatCurrency(0)}</span>
-                                            <span className="ml-1 text-gray-400">({formatCurrency(Math.abs(transaction.amount))})</span>
-                                        </td>
-                                    ) : (
-                                        <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${transaction.amount >= 0 ? 'text-synovus-green' : 'text-synovus-red'}`}>
-                                            {formatCurrency(transaction.amount)}
-                                        </td>
-                                    )}
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        {isRemediatable(transaction) && (
-                                            <button 
-                                                onClick={() => onRemediate(transaction.id)}
-                                                className="text-synovus-blue hover:text-synovus-red font-semibold"
-                                            >
-                                                Re-check Status
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
-                                    No transactions yet. Make a payment or transfer to see it here.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+    return (
+        <div className={`bg-white p-4 rounded-lg shadow-sm border ${isRemediatable(tx) ? 'border-yellow-400' : 'border-gray-200'}`}>
+            <div className="flex justify-between items-start">
+                <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase">{title}</p>
+                    <p className="text-gray-800 font-semibold">{subtext}</p>
+                    <p className="text-xs text-gray-500">{new Date(tx.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+                </div>
+                <div className="text-right">
+                    <p className={`text-xl font-bold ${isRemediatable(tx) ? 'text-yellow-600' : tx.status === 'FAILED' ? 'text-synovus-red' : 'text-gray-900'}`}>{amountDisplay}</p>
+                    {isRemediatable(tx) && (
+                         <button onClick={() => onRemediate(tx.id)} className="text-sm text-synovus-blue hover:text-synovus-red font-semibold">Re-check Status</button>
+                    )}
+                </div>
             </div>
         </div>
+    );
+  };
 
-      </div>
+  return (
+    <div className="max-w-3xl mx-auto bg-white p-6 md:p-8 shadow-md rounded-lg">
+        <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-synovus-dark-gray">Activity</h1>
+        </div>
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Pending Activity</h2>
+                {pendingTransactions.length > 0 ? (
+                    <div className="space-y-4">
+                        {pendingTransactions.map(tx => <TransactionCard key={tx.id} tx={tx} />)}
+                    </div>
+                ) : (
+                    <p className="text-gray-500">No pending tasks for you to take action on.</p>
+                )}
+            </div>
+             <div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Past Activity</h2>
+                 {pastTransactions.length > 0 ? (
+                    <div className="space-y-4">
+                        {pastTransactions.map(tx => <TransactionCard key={tx.id} tx={tx} />)}
+                    </div>
+                ) : (
+                    <p className="text-gray-500">No past activity to show.</p>
+                )}
+            </div>
+        </div>
     </div>
   );
 };

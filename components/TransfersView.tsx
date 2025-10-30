@@ -1,18 +1,23 @@
+// components/TransfersView.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { StatusDisplay } from './StatusDisplay';
 import { TracerDisplay } from './TracerDisplay';
 import { EventLog } from './EventLog';
-import { TransactionStatus, PaymentResult, TestCase, LogEntry } from '../types';
+import { TransactionStatus, PaymentResult, TestCase, LogEntry, Transaction } from '../types';
 import { processTransfer as processTransferRandom } from '../services/transferService';
 import { processTransfer as processTransferCase1 } from '../cases/transfer-case-1';
 import { processTransfer as processTransferCase2 } from '../cases/transfer-case-2';
 import { processTransfer as processTransferCase3 } from '../cases/transfer-case-3';
 import { WATCHDOG_TIMEOUT_MS } from '../constants';
-import { Account } from '../../App'; // Import the shared Account type
+// Correcting import path for Account type
+import { Account } from '../App'; // Import the shared Account type
+import { RemediationControl } from './RemediationControl';
 
 interface TransfersViewProps {
     accounts: Account[];
-    onTransferComplete: (fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED') => void;
+    onTransferComplete: (fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean) => Transaction;
+    onRemediate: (transactionId: string) => void;
 }
 
 const caseDetails: { id: TestCase; title: string; description: string }[] = [
@@ -22,16 +27,7 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
 ];
 
-const generateTransactionId = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = 'TXN';
-    for (let i = 0; i < 9; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
-export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferComplete }) => {
+export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferComplete, onRemediate }) => {
     const [fromAccount, setFromAccount] = useState(accounts[0]?.id || '');
     const [toAccount, setToAccount] = useState(accounts[1]?.id || '');
     const [amount, setAmount] = useState('100.00');
@@ -42,6 +38,8 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
     const [transactionAmount, setTransactionAmount] = useState<number>(0);
     const [activeCase, setActiveCase] = useState<TestCase>('random');
     const [eventLog, setEventLog] = useState<LogEntry[]>([]);
+    const [remediableTx, setRemediableTx] = useState<Transaction | null>(null);
+
     const watchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const wasPending = useRef<boolean>(false);
     const loggedLines = useRef(new Set());
@@ -97,6 +95,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         wasPending.current = false;
         loggedLines.current.clear();
         setEventLog([]);
+        setRemediableTx(null);
         addLogEntry('FE', `Transfer started. Case: ${activeCase}.`, newTraceId);
 
         if (watchdogTimer.current) clearTimeout(watchdogTimer.current);
@@ -123,15 +122,14 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         addLogEntry('BE', `TransactionResponse received. Status: ${result.status === 'SUCCESS' ? 'Success' : 'InternalHostError'}.`, result.traceId);
 
         if (result.status === 'SUCCESS') {
-            const transactionId = generateTransactionId();
-            addLogEntry('BE', `TransactionResult: { Status: 'Posted', TransactionId: '${transactionId}' }`);
             setStatus(wasPending.current ? TransactionStatus.SUCCESS_AFTER_PENDING : TransactionStatus.SUCCESS);
-            onTransferComplete(fromAccount, toAccount, numericAmount, 'SUCCESS');
+            onTransferComplete(fromAccount, toAccount, numericAmount, 'SUCCESS', wasPending.current);
         } else {
-            const reason = wasPending.current ? 'PaymentProviderError' : 'AccountClosed';
-            addLogEntry('BE', `TransactionResult: { Status: 'NotPosted', Secondary: '${reason}' }`);
             setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-            onTransferComplete(fromAccount, toAccount, numericAmount, 'FAILED');
+            const newTransaction = onTransferComplete(fromAccount, toAccount, numericAmount, 'FAILED', wasPending.current);
+            if (newTransaction.wasPending) {
+                setRemediableTx(newTransaction);
+            }
         }
     };
     
@@ -167,6 +165,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
         setError('');
         setEventLog([]);
         loggedLines.current.clear();
+        setRemediableTx(null);
     };
     
     const renderTransferForm = () => (
@@ -197,14 +196,10 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
     );
 
     return (
-        <div className="max-w-7xl mx-auto">
-             <div className="text-center mb-12">
-                <h1 className="text-3xl font-extrabold text-synovus-dark-gray sm:text-4xl">Transfer Funds</h1>
-                <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">This screen uses the same watchdog pattern to ensure your fund transfers are handled reliably, even with slow network conditions.</p>
-            </div>
+        <div className="max-w-7xl mx-auto bg-white p-6 md:p-8 shadow-md rounded-lg">
             <div className="mb-8">
-                <fieldset className="bg-white p-4 rounded-lg shadow">
-                <legend className="text-lg font-medium text-synovus-dark-gray mb-2">Select a Test Case</legend>
+                <fieldset className="bg-gray-50 p-4 rounded-lg shadow-inner border">
+                <legend className="text-lg font-medium text-synovus-dark-gray mb-2 px-2">Select a Test Case</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {caseDetails.map((c) => (<div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`} role="radio" aria-checked={activeCase === c.id} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}><h3 className="font-bold text-gray-800">{c.title}</h3><p className="text-sm text-gray-600 mt-1">{c.description}</p></div>))}
                 </div>
@@ -212,13 +207,16 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                  <div className="flex flex-col gap-8">
-                    <div className="bg-white p-8 rounded-xl shadow-md">
+                    <div className="bg-gray-50 p-8 rounded-xl shadow-inner border">
                         <h2 className="text-xl font-medium text-black mb-4">Transfer Terminal</h2>
                         {status === TransactionStatus.IDLE ? renderTransferForm() : <StatusDisplay status={status} traceId={traceId} onReset={handleReset} />}
                     </div>
                     <EventLog logs={eventLog} />
                 </div>
-                <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
+                <div className="flex flex-col gap-6">
+                    <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
+                    <RemediationControl remediableTx={remediableTx} onRemediate={onRemediate} />
+                </div>
             </div>
         </div>
     );

@@ -172,7 +172,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
     const isPending = status === TransactionStatus.PENDING_CONFIRMATION || status === TransactionStatus.SUCCESS_AFTER_PENDING || status === TransactionStatus.FAILED_AFTER_PENDING;
 
     return (
-        <div className="mt-12 md:mt-0">
+        <div>
             <h2 className="text-xl font-medium text-black mb-4">Tracer View</h2>
             <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-x-auto">
                 <div className="mb-8">

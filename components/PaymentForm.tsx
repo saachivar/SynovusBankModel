@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Account } from '../../App';
+// Correcting import path for Account type
+import { Account } from '../App';
 
 interface PaymentFormProps {
   accounts: Account[];

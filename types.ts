@@ -1,7 +1,8 @@
+// types.ts
+
 export enum TransactionStatus {
   IDLE = 'IDLE',
-  PROCESSING = 'PROCESSING', // Initial state after user clicks pay
-  // FIX: Add PENDING_CONFIRMATION to the enum to resolve compilation errors.
+  PROCESSING = 'PROCESSING', 
   PENDING_CONFIRMATION = 'PENDING_CONFIRMATION',
   SUCCESS = 'SUCCESS',
   FAILED = 'FAILED',
@@ -14,21 +15,32 @@ export interface PaymentResult {
     traceId: string;
 }
 
-export type TransactionType = 'PAYMENT' | 'TRANSFER' | 'P2P';
+export type TransactionType = 'PAYMENT' | 'TRANSFER' | 'P2P' | 'REQUEST_SENT' | 'SPLIT_SENT';
 
 export type TestCase = 'random' | 'case1' | 'case2' | 'case3';
 
+export interface Recipient {
+    id: string;
+    name: string;
+    contact: string;
+    initials: string;
+}
+
 export interface Transaction {
   id: string;
-  date: string;
+  timestamp: string; // Changed from 'date' to 'timestamp'
   description: string;
   amount: number;
-  // New properties to support remediation
-  status: 'SUCCESS' | 'FAILED';
+  status: 'SUCCESS' | 'FAILED' | 'PENDING';
   type: TransactionType;
-  fromAccountId: string;
+  fromAccountId?: string;
   toAccountId?: string;
-  recipient?: string;
+  recipient?: Recipient; // For P2P and Requests
+  participants?: Recipient[]; // For Splits
+  wasPending?: boolean;
+  remediationAttempted?: boolean;
+  reason?: string;
+  expires?: string; // For pending requests/splits
 }
 
 export interface LogEntry {
