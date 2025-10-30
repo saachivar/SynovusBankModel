@@ -206,7 +206,7 @@ function App() {
         setRemediationTransaction(txToRemediate);
         
         setTimeout(() => {
-            const wasActuallySuccess = Math.random() < 0.4;
+            const wasActuallySuccess = Math.random() < 0.1;
             let finalTx: Transaction = txToRemediate;
             
             setTransactions(prev => prev.map(tx => {
@@ -262,7 +262,7 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'ACCOUNTS':
-        return <AccountsView accounts={accounts} onNavigate={handleNavigate} onShowZelle={() => setShowZelle(true)} onAddAccount={() => setShowAddAccountModal(true)} onEnrollInBillPay={() => setShowEnrollBillPayModal(true)} />;
+        return <AccountsView accounts={accounts} transactions={transactions} onNavigate={handleNavigate} onShowZelle={() => setShowZelle(true)} onAddAccount={() => setShowAddAccountModal(true)} onEnrollInBillPay={() => setShowEnrollBillPayModal(true)} onRemediate={handleRemediate} />;
       case 'PAYMENTS':
         return <PaymentsView accounts={accounts} onPaymentComplete={handlePaymentComplete} onRemediate={handleRemediate} />;
       case 'TRANSFERS':
@@ -274,7 +274,7 @@ function App() {
       case 'FAQS_SUPPORT':
         return <FaqsSupportView />;
       default:
-        return <AccountsView accounts={accounts} onNavigate={handleNavigate} onShowZelle={() => setShowZelle(true)} onAddAccount={() => setShowAddAccountModal(true)} onEnrollInBillPay={() => setShowEnrollBillPayModal(true)} />;
+        return <AccountsView accounts={accounts} transactions={transactions} onNavigate={handleNavigate} onShowZelle={() => setShowZelle(true)} onAddAccount={() => setShowAddAccountModal(true)} onEnrollInBillPay={() => setShowEnrollBillPayModal(true)} onRemediate={handleRemediate} />;
     }
   };
 

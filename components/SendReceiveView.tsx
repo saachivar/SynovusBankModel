@@ -72,6 +72,11 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
     };
     setEventLog(prev => [...prev, newEntry]);
   };
+  
+  const handleRemediate = (transactionId: string) => {
+    onRemediate(transactionId);
+    setRemediableTx(null);
+  };
 
   const handleInitiateSend = (recipientContact: string, amount: number) => {
     const isFirstTimePayment = !transactions.some(tx => 
@@ -211,7 +216,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
                     )}
                 </div>
                 <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
-                <RemediationControl remediableTx={remediableTx} onRemediate={onRemediate} />
+                <RemediationControl remediableTx={remediableTx} onRemediate={handleRemediate} />
             </div>
             
             <div className="flex flex-col gap-8">

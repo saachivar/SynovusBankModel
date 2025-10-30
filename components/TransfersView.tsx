@@ -64,6 +64,11 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             if (error) setError('');
         }
     };
+    
+    const handleRemediate = (transactionId: string) => {
+        onRemediate(transactionId);
+        setRemediableTx(null);
+    };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -213,7 +218,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
                 </div>
                 <div className="flex flex-col gap-6">
                     <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
-                    <RemediationControl remediableTx={remediableTx} onRemediate={onRemediate} />
+                    <RemediationControl remediableTx={remediableTx} onRemediate={handleRemediate} />
                 </div>
             </div>
         </div>

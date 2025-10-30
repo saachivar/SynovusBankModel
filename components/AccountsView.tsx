@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Account, Tab } from '../types.ts';
+import { Account, Tab, Transaction } from '../types.ts';
 
 interface AccountsViewProps {
     accounts: Account[];
+    transactions: Transaction[];
     onNavigate: (tab: Tab) => void;
     onShowZelle: () => void;
     onAddAccount: () => void;
     onEnrollInBillPay: () => void;
+    onRemediate: (transactionId: string) => void;
 }
 
-export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate, onShowZelle, onAddAccount, onEnrollInBillPay }) => {
+export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, transactions, onNavigate, onShowZelle, onAddAccount, onEnrollInBillPay, onRemediate }) => {
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -23,13 +26,17 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number, withSign = false) => {
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+    if (withSign && amount > 0) {
+        return `+${formatted}`;
+    }
+    return formatted;
   };
   
   const handleOptionClick = (optionName: string) => {
@@ -39,6 +46,75 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate
 
   const toolButtonBase = "w-full flex justify-between items-center text-left py-3 px-4 border rounded-lg transition-all duration-200 shadow-sm text-sm font-medium";
 
+  // Render Account Activity View if an account is selected
+  if (selectedAccount) {
+    const accountTransactions = transactions
+      .filter(tx => tx.fromAccountId === selectedAccount.id || tx.toAccountId === selectedAccount.id)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    const isRemediatable = (tx: Transaction) => tx.status === 'FAILED' && tx.wasPending && !tx.remediationAttempted;
+
+    return (
+        <div className="max-w-7xl mx-auto bg-white p-6 md:p-8 shadow-lg rounded-lg">
+            <div className="mb-6">
+                <button onClick={() => setSelectedAccount(null)} className="flex items-center text-sm font-semibold text-synovus-cyan-button hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to All Accounts
+                </button>
+            </div>
+            <div className="flex justify-between items-center border-b pb-4 mb-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">{selectedAccount.name}</h2>
+                    <p className="text-sm text-gray-500">Account Activity</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-sm text-gray-500">Available Balance</p>
+                    <p className="text-2xl font-bold text-gray-800">{formatCurrency(selectedAccount.balance)}</p>
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                {accountTransactions.length > 0 ? (
+                    accountTransactions.map(tx => {
+                        const isCredit = tx.toAccountId === selectedAccount.id;
+                        const displayAmount = isCredit ? Math.abs(tx.amount) : tx.amount;
+                        const amountColor = isCredit ? 'text-green-600' : tx.status === 'FAILED' ? 'text-red-600' : 'text-gray-900';
+
+                        return (
+                            <div key={tx.id} className="p-3 bg-gray-50 rounded-md border">
+                                <div className="grid grid-cols-3 items-center gap-4">
+                                    <div className="text-sm text-gray-600">
+                                        {new Date(tx.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-800 text-sm">{tx.description}</p>
+                                        {tx.status !== 'SUCCESS' && (
+                                            <p className={`text-xs font-bold ${tx.status === 'FAILED' ? 'text-red-500' : 'text-yellow-600'}`}>{tx.status}</p>
+                                        )}
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`font-bold text-sm ${amountColor}`}>{formatCurrency(displayAmount, isCredit)}</p>
+                                        {isRemediatable(tx) && (
+                                            <button onClick={() => onRemediate(tx.id)} className="text-xs text-synovus-cyan-button hover:underline font-semibold">Re-check Status</button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div className="text-center py-8 text-gray-500">
+                        <p>No transactions found for this account.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+  }
+
+  // Render main accounts list view by default
   return (
     <div className="max-w-7xl mx-auto">
       <div className="bg-white p-6 md:p-8 shadow-lg rounded-lg z-10 relative">
@@ -75,15 +151,17 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, onNavigate
                 <h3 className="text-sm font-semibold text-gray-500 mb-2">Assets</h3>
                 <div className="space-y-0">
                     {accounts.map((account, index) => (
-                        <div key={account.id} className={`flex justify-between items-center py-4 ${index < accounts.length - 1 ? 'border-b border-gray-200' : ''}`}>
-                           <div>
-                                <p className="font-semibold text-gray-800">{account.name.split(' (')[0]}</p>
-                                <p className="text-sm text-gray-500">{account.name.match(/\(\.\.\.\d+\)/)?.[0]}</p>
-                           </div>
-                           <div className="text-right">
-                                <p className="text-lg font-bold text-gray-800">{formatCurrency(account.balance)}</p>
-                                <p className="text-sm text-gray-500">Available Balance</p>
-                           </div>
+                        <div key={account.id} className={`group ${index < accounts.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                             <button onClick={() => setSelectedAccount(account)} className="w-full text-left flex justify-between items-center py-4 group-hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors duration-150">
+                               <div>
+                                    <p className="font-semibold text-gray-800">{account.name.split(' (')[0]}</p>
+                                    <p className="text-sm text-gray-500">{account.name.match(/\(\.\.\.\d+\)/)?.[0]}</p>
+                               </div>
+                               <div className="text-right">
+                                    <p className="text-lg font-bold text-gray-800">{formatCurrency(account.balance)}</p>
+                                    <p className="text-sm text-gray-500">Available Balance</p>
+                               </div>
+                            </button>
                         </div>
                     ))}
                 </div>

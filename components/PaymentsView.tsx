@@ -43,6 +43,11 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
         setEventLog(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), source, message, traceId }]);
     };
 
+    const handleRemediate = (transactionId: string) => {
+        onRemediate(transactionId);
+        setRemediableTx(null);
+    };
+
     const handlePay = async (fromId: string, amount: number) => {
         const selectedAccount = accounts.find(acc => acc.id === fromId);
         if (!selectedAccount) return;
@@ -142,7 +147,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
                 </div>
                 <div className="flex flex-col gap-6">
                     <TracerDisplay status={status} traceId={traceId} amount={transactionAmount} activeCase={activeCase} onLog={handleTracerLog} />
-                    <RemediationControl remediableTx={remediableTx} onRemediate={onRemediate} />
+                    <RemediationControl remediableTx={remediableTx} onRemediate={handleRemediate} />
                 </div>
             </div>
         </div>
