@@ -1,4 +1,4 @@
-import { PaymentResult } from '../types';
+import { PaymentResult } from '../types.ts';
 
 /**
  * P2P Case 3: Slow, failed payment.

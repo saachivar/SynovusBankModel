@@ -1,7 +1,7 @@
 // components/StatusDisplay.tsx
 
 import React from 'react';
-import { TransactionStatus } from '../types';
+import { TransactionStatus } from '../types.ts';
 
 interface StatusDisplayProps {
   status: TransactionStatus;

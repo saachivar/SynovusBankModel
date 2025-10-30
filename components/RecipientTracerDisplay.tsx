@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { TransactionStatus, TestCase } from '../types';
+import { TransactionStatus, TestCase } from '../types.ts';
 
 interface RecipientTracerProps {
   status: TransactionStatus;

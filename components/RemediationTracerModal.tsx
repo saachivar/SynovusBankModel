@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Transaction } from '../types';
+import { Transaction } from '../types.ts';
 
 interface RemediationTracerModalProps {
   transaction: Transaction | null;

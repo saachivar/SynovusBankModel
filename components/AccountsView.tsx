@@ -1,6 +1,6 @@
 import React from 'react';
 // Correcting import path for Account and Tab types
-import { Account, Tab } from '../App';
+import { Account, Tab } from '../App.tsx';
 
 interface AccountsViewProps {
     accounts: Account[];

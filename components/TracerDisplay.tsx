@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { TransactionStatus, TestCase } from '../types';
-import { WATCHDOG_TIMEOUT_MS } from '../constants';
+import { TransactionStatus, TestCase } from '../types.ts';
+import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
 
 // Helper components for syntax highlighting
 const CodeLine: React.FC<{ children: React.ReactNode; isHighlighted?: boolean, isBlinking?: boolean }> = ({ children, isHighlighted, isBlinking }) => (

@@ -1,21 +1,21 @@
 import React, { useState, useCallback } from 'react';
-import { Header } from './components/Header';
-import { Footer } from './components/Footer';
-import { AccountsView } from './components/AccountsView';
-import { PaymentsView } from './components/PaymentsView';
-import { TransfersView } from './components/TransfersView';
-import { SendReceiveView } from './components/SendReceiveView';
-import { InsightsView } from './components/InsightsView';
-import { PlanningView } from './components/PlanningView';
-import { FaqsSupportView } from './components/FaqsSupportView';
-import { RemediationTracerModal } from './components/RemediationTracerModal';
-import { RemediationResultModal } from './components/RemediationResultModal';
-import { AlertsModal } from './components/AlertsModal';
-import { AddAccountModal } from './components/AddAccountModal';
-import { ApplicationSubmittedModal } from './components/ApplicationSubmittedModal';
-import { EnrollBillPayModal } from './components/EnrollBillPayModal';
-import { EnrollmentCompleteModal } from './components/EnrollmentCompleteModal';
-import { Transaction, Recipient } from './types';
+import { Header } from './components/Header.tsx';
+import { Footer } from './components/Footer.tsx';
+import { AccountsView } from './components/AccountsView.tsx';
+import { PaymentsView } from './components/PaymentsView.tsx';
+import { TransfersView } from './components/TransfersView.tsx';
+import { SendReceiveView } from './components/SendReceiveView.tsx';
+import { InsightsView } from './components/InsightsView.tsx';
+import { PlanningView } from './components/PlanningView.tsx';
+import { FaqsSupportView } from './components/FaqsSupportView.tsx';
+import { RemediationTracerModal } from './components/RemediationTracerModal.tsx';
+import { RemediationResultModal } from './components/RemediationResultModal.tsx';
+import { AlertsModal } from './components/AlertsModal.tsx';
+import { AddAccountModal } from './components/AddAccountModal.tsx';
+import { ApplicationSubmittedModal } from './components/ApplicationSubmittedModal.tsx';
+import { EnrollBillPayModal } from './components/EnrollBillPayModal.tsx';
+import { EnrollmentCompleteModal } from './components/EnrollmentCompleteModal.tsx';
+import { Transaction, Recipient } from './types.ts';
 
 export type Tab = 'ACCOUNTS' | 'PAYMENTS' | 'TRANSFERS' | 'INSIGHTS' | 'PLANNING' | 'FAQS_SUPPORT';
 

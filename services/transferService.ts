@@ -1,4 +1,4 @@
-import { PaymentResult } from '../types';
+import { PaymentResult } from '../types.ts';
 
 /**
  * Simulates a backend API call for fund transfers.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction } from '../types';
+import { Transaction } from '../types.ts';
 
 interface RemediationControlProps {
   remediableTx: Transaction | null;

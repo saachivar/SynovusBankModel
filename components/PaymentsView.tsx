@@ -1,19 +1,19 @@
 // components/PaymentsView.tsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { StatusDisplay } from './StatusDisplay';
-import { TracerDisplay } from './TracerDisplay';
-import { EventLog } from './EventLog';
-import { TransactionStatus, PaymentResult, TestCase, LogEntry, Transaction } from '../types';
-import { processPayment as processPaymentRandom } from '../services/paymentService';
-import { processPayment as processPaymentCase1 } from '../cases/case-1';
-import { processPayment as processPaymentCase2 } from '../cases/case-2';
-import { processPayment as processPaymentCase3 } from '../cases/case-3';
-import { WATCHDOG_TIMEOUT_MS } from '../constants';
+import { StatusDisplay } from './StatusDisplay.tsx';
+import { TracerDisplay } from './TracerDisplay.tsx';
+import { EventLog } from './EventLog.tsx';
+import { TransactionStatus, PaymentResult, TestCase, LogEntry, Transaction } from '../types.ts';
+import { processPayment as processPaymentRandom } from '../services/paymentService.ts';
+import { processPayment as processPaymentCase1 } from '../cases/case-1.ts';
+import { processPayment as processPaymentCase2 } from '../cases/case-2.ts';
+import { processPayment as processPaymentCase3 } from '../cases/case-3.ts';
+import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
 // Correcting import path for Account type
-import { Account } from '../App';
-import { PaymentForm } from './PaymentForm';
-import { RemediationControl } from './RemediationControl';
+import { Account } from '../App.tsx';
+import { PaymentForm } from './PaymentForm.tsx';
+import { RemediationControl } from './RemediationControl.tsx';
 
 interface PaymentsViewProps {
     accounts: Account[];

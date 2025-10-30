@@ -1,18 +1,18 @@
 // components/SendReceiveView.tsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { StatusDisplay } from './StatusDisplay';
-import { TracerDisplay } from './TracerDisplay';
-import { RecipientTracerDisplay } from './RecipientTracerDisplay';
-import { EventLog } from './EventLog';
-import { TransactionStatus, PaymentResult, TestCase, LogEntry, Recipient, Transaction } from '../types';
-import { sendMoney as sendMoneyRandom } from '../services/sendMoneyService';
-import { sendMoney as sendMoneyCase1 } from '../cases/send-money-case-1';
-import { sendMoney as sendMoneyCase2 } from '../cases/send-money-case-2';
-import { sendMoney as sendMoneyCase3 } from '../cases/send-money-case-3';
-import { WATCHDOG_TIMEOUT_MS } from '../constants';
-import { Account } from '../App';
-import { RemediationControl } from './RemediationControl';
+import { StatusDisplay } from './StatusDisplay.tsx';
+import { TracerDisplay } from './TracerDisplay.tsx';
+import { RecipientTracerDisplay } from './RecipientTracerDisplay.tsx';
+import { EventLog } from './EventLog.tsx';
+import { TransactionStatus, PaymentResult, TestCase, LogEntry, Recipient, Transaction } from '../types.ts';
+import { sendMoney as sendMoneyRandom } from '../services/sendMoneyService.ts';
+import { sendMoney as sendMoneyCase1 } from '../cases/send-money-case-1.ts';
+import { sendMoney as sendMoneyCase2 } from '../cases/send-money-case-2.ts';
+import { sendMoney as sendMoneyCase3 } from '../cases/send-money-case-3.ts';
+import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
+import { Account } from '../App.tsx';
+import { RemediationControl } from './RemediationControl.tsx';
 
 interface SendReceiveViewProps {
   accounts: Account[];
@@ -617,7 +617,7 @@ const ScamWarningModal: React.FC<ScamWarningModalProps> = ({ recipient, onClose,
                             Don't send money as a result of an unexpected text, call or email – it could be a scam.
                         </div>
                          <div className="p-4 border rounded-md text-sm text-gray-600">
-                            Scammers use urgency to get you to send money. Be wary any time someone wants you to act now.
+                            Scammers use urgency to get you to act now. Be wary any time someone wants you to act now.
                         </div>
                     </div>
 
