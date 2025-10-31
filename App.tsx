@@ -212,29 +212,39 @@ function App() {
         
         setTimeout(() => {
             const wasActuallySuccess = txToRemediate.trueStatus === 'SUCCESS';
-            let finalTx: Transaction = txToRemediate;
             
-            setTransactions(prev => prev.map(tx => {
-                if (tx.id === transactionId) {
-                    const newStatus: 'SUCCESS' | 'FAILED' = wasActuallySuccess ? 'SUCCESS' : 'FAILED';
-                    // Only update status if it's changing
-                    const updatedTx = tx.status === newStatus ? tx : { ...tx, status: newStatus };
-                    finalTx = updatedTx;
-                    
-                    // If remediation found a success that was previously marked as failed, correct balances.
-                    if (wasActuallySuccess && tx.status === 'FAILED') {
-                        setAccounts(prevAccounts => prevAccounts.map(acc => {
-                            if (acc.id === updatedTx.fromAccountId) return { ...acc, balance: acc.balance + updatedTx.amount }; // amount is negative
-                            if (acc.id === updatedTx.toAccountId) return { ...acc, balance: acc.balance - updatedTx.amount }; 
-                            return acc;
-                        }));
+            if (wasActuallySuccess) {
+                // Transaction was a hidden success. Update its status and correct account balances.
+                let finalTx: Transaction = txToRemediate; // Fallback
+                
+                setTransactions(prev => prev.map(tx => {
+                    if (tx.id === transactionId) {
+                        const updatedTx = { ...tx, status: 'SUCCESS' as 'SUCCESS' };
+                        finalTx = updatedTx;
+                        
+                        // Correct balances only if it was previously marked as FAILED
+                        if (tx.status === 'FAILED') {
+                            setAccounts(prevAccounts => prevAccounts.map(acc => {
+                                if (acc.id === updatedTx.fromAccountId) return { ...acc, balance: acc.balance + updatedTx.amount }; // amount is negative
+                                if (acc.id === updatedTx.toAccountId) return { ...acc, balance: acc.balance - updatedTx.amount }; 
+                                return acc;
+                            }));
+                        }
+                        return updatedTx;
                     }
-                    return updatedTx;
-                }
-                return tx;
-            }));
-            setRemediationTransaction(null);
-            setRemediationResult({ status: finalTx.status as 'SUCCESS' | 'FAILED', tx: finalTx });
+                    return tx;
+                }));
+                
+                setRemediationTransaction(null);
+                setRemediationResult({ status: 'SUCCESS', tx: finalTx });
+
+            } else {
+                // It was a confirmed failure. Remove it from activity logs.
+                setTransactions(prev => prev.filter(tx => tx.id !== transactionId));
+                setRemediationTransaction(null);
+                // We pass the original transaction to the result modal to show its details before it's gone.
+                setRemediationResult({ status: 'FAILED', tx: txToRemediate });
+            }
         }, 3000);
     }
   };

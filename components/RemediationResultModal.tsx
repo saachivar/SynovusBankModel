@@ -40,8 +40,11 @@ export const RemediationResultModal: React.FC<RemediationResultModalProps> = ({ 
         </h3>
         
         <p className="text-sm text-gray-600 mt-2">
-            The status for transaction <code className="text-xs bg-gray-100 p-1 rounded">{result.tx.id.slice(0, 8)}...</code> has been updated.
-            {isSuccess ? ' Your account balances have been corrected.' : ' No changes were made to your accounts.'}
+            {isSuccess ?
+                <span>The status for transaction <code className="text-xs bg-gray-100 p-1 rounded">{result.tx.id.slice(0, 8)}...</code> has been updated. Your account balances have been corrected.</span>
+                :
+                <span>The transaction <code className="text-xs bg-gray-100 p-1 rounded">{result.tx.id.slice(0, 8)}...</code> was confirmed as failed and has been removed from your activity. No changes were made to your accounts.</span>
+            }
         </p>
 
         <button
