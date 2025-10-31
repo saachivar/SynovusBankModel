@@ -74,7 +74,7 @@ export const TracerDisplay: React.FC<TracerDisplayProps> = ({ status, traceId, a
         /* 4*/ <>parentSpan.<Func>setAttribute</Func>(<String>'payment.amount'</String>, <NumberVal>{amount > 0 ? amount.toFixed(2) : '...'}</NumberVal>);</>,
         /* 5*/ <>&nbsp;</>,
         /* 6*/ <><Comment>// Start a watchdog timer. If the backend is slow, this will fire.</Comment></>,
-        /* 7*/ <><Keyword>const</Keyword> watchdog = <Func>setTimeout</Func>(() => {'{'} )</>,
+        /* 7*/ <><Keyword>const</Keyword> watchdog = <Func>setTimeout</Func>(() =&gt; {'{'} )</>,
         /* 8*/ <>  <Comment>  // Watchdog triggered! The backend is taking too long.</Comment></>,
         /* 9*/ <>  parentSpan.<Func>addEvent</Func>(<String>'watchdog.triggered'</String>);</>,
         /*10*/ <>  <Func>ui.updateStatus</Func>(<String>'PENDING_CONFIRMATION'</String>);</>,
