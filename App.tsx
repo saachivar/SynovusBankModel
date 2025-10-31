@@ -39,6 +39,7 @@ const initialTransactions: Transaction[] = [
         fromAccountId: 'acc-1',
         wasPending: false,
         remediationAttempted: false,
+        trueStatus: 'SUCCESS',
     },
     {
         id: 'tx-2',
@@ -51,6 +52,7 @@ const initialTransactions: Transaction[] = [
         recipient: initialRecipients[0],
         wasPending: false,
         remediationAttempted: false,
+        trueStatus: 'SUCCESS',
     }
 ];
 
@@ -113,7 +115,7 @@ function App() {
     return newTransaction;
   }, []);
 
-  const handlePaymentComplete = useCallback((fromId: string, payee: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean): Transaction => {
+  const handlePaymentComplete = useCallback((fromId: string, payee: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean, trueStatus?: 'SUCCESS' | 'FAILED'): Transaction => {
     if (status === 'SUCCESS') {
         setAccounts(prevAccounts => prevAccounts.map(acc => 
             acc.id === fromId ? { ...acc, balance: acc.balance - amount } : acc
@@ -126,11 +128,12 @@ function App() {
         status,
         fromAccountId: fromId,
         wasPending,
-        remediationAttempted: false
+        remediationAttempted: false,
+        trueStatus: status === 'SUCCESS' ? 'SUCCESS' : trueStatus
     });
   }, [addTransaction]);
 
-  const handleTransferComplete = useCallback((fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean): Transaction => {
+  const handleTransferComplete = useCallback((fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean, trueStatus?: 'SUCCESS' | 'FAILED'): Transaction => {
     const toAccount = accounts.find(a => a.id === toId);
 
     if (status === 'SUCCESS') {
@@ -148,11 +151,12 @@ function App() {
         fromAccountId: fromId,
         toAccountId: toId,
         wasPending,
-        remediationAttempted: false
+        remediationAttempted: false,
+        trueStatus: status === 'SUCCESS' ? 'SUCCESS' : trueStatus,
     });
   }, [addTransaction, accounts]);
 
-  const handleSendMoneyComplete = useCallback((fromId: string, recipientName: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean): Transaction => {
+  const handleSendMoneyComplete = useCallback((fromId: string, recipientName: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean, trueStatus?: 'SUCCESS' | 'FAILED'): Transaction => {
     const recipient = recipients.find(r => r.name === recipientName);
     if (status === 'SUCCESS') {
         setAccounts(prevAccounts => prevAccounts.map(acc => 
@@ -167,7 +171,8 @@ function App() {
         fromAccountId: fromId,
         recipient,
         wasPending,
-        remediationAttempted: false
+        remediationAttempted: false,
+        trueStatus: status === 'SUCCESS' ? 'SUCCESS' : trueStatus,
     });
   }, [addTransaction, recipients]);
 
@@ -206,17 +211,20 @@ function App() {
         setRemediationTransaction(txToRemediate);
         
         setTimeout(() => {
-            const wasActuallySuccess = Math.random() < 0.1;
+            const wasActuallySuccess = txToRemediate.trueStatus === 'SUCCESS';
             let finalTx: Transaction = txToRemediate;
             
             setTransactions(prev => prev.map(tx => {
                 if (tx.id === transactionId) {
                     const newStatus: 'SUCCESS' | 'FAILED' = wasActuallySuccess ? 'SUCCESS' : 'FAILED';
-                    const updatedTx = { ...tx, status: newStatus };
+                    // Only update status if it's changing
+                    const updatedTx = tx.status === newStatus ? tx : { ...tx, status: newStatus };
                     finalTx = updatedTx;
-                    if (wasActuallySuccess) {
+                    
+                    // If remediation found a success that was previously marked as failed, correct balances.
+                    if (wasActuallySuccess && tx.status === 'FAILED') {
                         setAccounts(prevAccounts => prevAccounts.map(acc => {
-                            if (acc.id === updatedTx.fromAccountId) return { ...acc, balance: acc.balance + updatedTx.amount };
+                            if (acc.id === updatedTx.fromAccountId) return { ...acc, balance: acc.balance + updatedTx.amount }; // amount is negative
                             if (acc.id === updatedTx.toAccountId) return { ...acc, balance: acc.balance - updatedTx.amount }; 
                             return acc;
                         }));

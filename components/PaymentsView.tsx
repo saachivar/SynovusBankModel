@@ -9,13 +9,15 @@ import { processPayment as processPaymentRandom } from '../services/paymentServi
 import { processPayment as processPaymentCase1 } from '../cases/case-1.ts';
 import { processPayment as processPaymentCase2 } from '../cases/case-2.ts';
 import { processPayment as processPaymentCase3 } from '../cases/case-3.ts';
+import { processPayment as processPaymentCase4 } from '../cases/case-4.ts';
+import { processPayment as processPaymentCase5 } from '../cases/case-5.ts';
 import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
 import { PaymentForm } from './PaymentForm.tsx';
 import { RemediationControl } from './RemediationControl.tsx';
 
 interface PaymentsViewProps {
     accounts: Account[];
-    onPaymentComplete: (fromId: string, payee: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean) => Transaction;
+    onPaymentComplete: (fromId: string, payee: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean, trueStatus?: 'SUCCESS' | 'FAILED') => Transaction;
     onRemediate: (transactionId: string) => void;
 }
 
@@ -23,7 +25,9 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'random', title: 'Random', description: '25% chance of slow response (8-10s), 15% chance of failure.' },
   { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 3-4 seconds. Watchdog will not trigger.' },
   { id: 'case2', title: 'Slow Success', description: 'Guaranteed success between 9-13 seconds. Watchdog will trigger.' },
-  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
+  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure > 13s. Remediation confirms failure.' },
+  { id: 'case4', title: 'Confirmed Fail', description: 'Guaranteed failure > 13s. Remediation confirms failure.'},
+  { id: 'case5', title: 'Hidden Success', description: 'Appears to fail > 13s, but remediation finds it was a success.' },
 ];
 
 export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentComplete, onRemediate }) => {
@@ -75,6 +79,8 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
             case 'case1': paymentPromise = processPaymentCase1(newTraceId, amount, selectedAccount.balance); break;
             case 'case2': paymentPromise = processPaymentCase2(newTraceId, amount, selectedAccount.balance); break;
             case 'case3': paymentPromise = processPaymentCase3(newTraceId, amount, selectedAccount.balance); break;
+            case 'case4': paymentPromise = processPaymentCase4(newTraceId, amount, selectedAccount.balance); break;
+            case 'case5': paymentPromise = processPaymentCase5(newTraceId, amount, selectedAccount.balance); break;
             default: paymentPromise = processPaymentRandom(newTraceId, amount, selectedAccount.balance);
         }
 
@@ -88,8 +94,10 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
             onPaymentComplete(fromId, currentPayee, amount, 'SUCCESS', wasPending.current);
         } else {
             setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-            const newTransaction = onPaymentComplete(fromId, currentPayee, amount, 'FAILED', wasPending.current);
-            if (newTransaction.wasPending) {
+            const trueStatus = activeCase === 'case5' ? 'SUCCESS' : 'FAILED';
+            const newTransaction = onPaymentComplete(fromId, currentPayee, amount, 'FAILED', wasPending.current, trueStatus);
+            // Any failure that was pending OR is the special hidden success case can be remediated
+            if (newTransaction.wasPending || activeCase === 'case5') {
                 setRemediableTx(newTransaction);
             }
         }
@@ -125,7 +133,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({ accounts, onPaymentC
         <div className="max-w-7xl mx-auto bg-white p-6 md:p-8 shadow-md rounded-lg">
             <fieldset className="bg-gray-50 p-4 rounded-lg shadow-inner border mb-8">
                 <legend className="text-lg font-medium text-synovus-dark-gray mb-2 px-2">Select a Test Case</legend>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {caseDetails.map(c => (
                         <div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`} role="radio" aria-checked={activeCase === c.id} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}>
                             <h3 className="font-bold text-gray-800">{c.title}</h3>

@@ -10,6 +10,8 @@ import { sendMoney as sendMoneyRandom } from '../services/sendMoneyService.ts';
 import { sendMoney as sendMoneyCase1 } from '../cases/send-money-case-1.ts';
 import { sendMoney as sendMoneyCase2 } from '../cases/send-money-case-2.ts';
 import { sendMoney as sendMoneyCase3 } from '../cases/send-money-case-3.ts';
+import { sendMoney as sendMoneyCase4 } from '../cases/send-money-case-4.ts';
+import { sendMoney as sendMoneyCase5 } from '../cases/send-money-case-5.ts';
 import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
 import { RemediationControl } from './RemediationControl.tsx';
 
@@ -17,7 +19,7 @@ interface SendReceiveViewProps {
   accounts: Account[];
   recipients: Recipient[];
   transactions: Transaction[];
-  onSendMoneyComplete: (fromId: string, recipient: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean) => Transaction;
+  onSendMoneyComplete: (fromId: string, recipient: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean, trueStatus?: 'SUCCESS' | 'FAILED') => Transaction;
   onRequestMoney: (fromId: string, recipient: Recipient, amount: number, reason: string) => void;
   onSplitBill: (fromId: string, participants: Recipient[], amount: number, reason: string) => void;
   onRemediate: (transactionId: string) => void;
@@ -29,7 +31,9 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'random', title: 'Random', description: '25% chance of a slow response (8-10s), 15% chance of failure.' },
   { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 3-4 seconds. Watchdog will not trigger.' },
   { id: 'case2', title: 'Slow Success', description: 'Guaranteed success between 9-13 seconds. Watchdog will trigger.' },
-  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
+  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure > 13s. Remediation confirms failure.' },
+  { id: 'case4', title: 'Confirmed Fail', description: 'Guaranteed failure > 13s. Remediation confirms failure.'},
+  { id: 'case5', title: 'Hidden Success', description: 'Appears to fail > 13s, but remediation finds it was a success.' },
 ];
 
 type ZelleTab = 'send' | 'request' | 'split' | 'activity' | 'settings';
@@ -137,6 +141,8 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
       case 'case1': paymentPromise = sendMoneyCase1(newTraceId, amount); break;
       case 'case2': paymentPromise = sendMoneyCase2(newTraceId, amount); break;
       case 'case3': paymentPromise = sendMoneyCase3(newTraceId, amount); break;
+      case 'case4': paymentPromise = sendMoneyCase4(newTraceId, amount); break;
+      case 'case5': paymentPromise = sendMoneyCase5(newTraceId, amount); break;
       default: paymentPromise = sendMoneyRandom(newTraceId, amount);
     }
     
@@ -150,8 +156,9 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
       onSendMoneyComplete(fromAccount, recipientName, amount, 'SUCCESS', wasPending.current);
     } else {
       setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-      const newTransaction = onSendMoneyComplete(fromAccount, recipientName, amount, 'FAILED', wasPending.current);
-      if (newTransaction.wasPending) {
+      const trueStatus = activeCase === 'case5' ? 'SUCCESS' : 'FAILED';
+      const newTransaction = onSendMoneyComplete(fromAccount, recipientName, amount, 'FAILED', wasPending.current, trueStatus);
+      if (newTransaction.wasPending || activeCase === 'case5') {
         setRemediableTx(newTransaction);
       }
     }
@@ -201,7 +208,7 @@ export const SendReceiveView: React.FC<SendReceiveViewProps> = (props) => {
      <div className="mt-8 container mx-auto px-4">
         <fieldset className="bg-gray-50 p-4 rounded-lg shadow-inner border mb-8">
             <legend className="text-lg font-medium text-synovus-dark-gray mb-2 px-2">Select a Test Case</legend>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {caseDetails.map(c => (<div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`} role="radio" aria-checked={activeCase === c.id} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}><h3 className="font-bold text-gray-800">{c.title}</h3><p className="text-sm text-gray-600 mt-1">{c.description}</p></div>))}
             </div>
         </fieldset>

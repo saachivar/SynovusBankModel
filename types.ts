@@ -17,7 +17,7 @@ export interface PaymentResult {
 
 export type TransactionType = 'PAYMENT' | 'TRANSFER' | 'P2P' | 'REQUEST_SENT' | 'SPLIT_SENT';
 
-export type TestCase = 'random' | 'case1' | 'case2' | 'case3';
+export type TestCase = 'random' | 'case1' | 'case2' | 'case3' | 'case4' | 'case5';
 
 export interface Recipient {
     id: string;
@@ -41,6 +41,7 @@ export interface Transaction {
   remediationAttempted?: boolean;
   reason?: string;
   expires?: string; // For pending requests/splits
+  trueStatus?: 'SUCCESS' | 'FAILED'; // The authoritative backend status for remediation simulation
 }
 
 export interface LogEntry {

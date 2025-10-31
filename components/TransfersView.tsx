@@ -9,12 +9,14 @@ import { processTransfer as processTransferRandom } from '../services/transferSe
 import { processTransfer as processTransferCase1 } from '../cases/transfer-case-1.ts';
 import { processTransfer as processTransferCase2 } from '../cases/transfer-case-2.ts';
 import { processTransfer as processTransferCase3 } from '../cases/transfer-case-3.ts';
+import { processTransfer as processTransferCase4 } from '../cases/transfer-case-4.ts';
+import { processTransfer as processTransferCase5 } from '../cases/transfer-case-5.ts';
 import { WATCHDOG_TIMEOUT_MS } from '../constants.ts';
 import { RemediationControl } from './RemediationControl.tsx';
 
 interface TransfersViewProps {
     accounts: Account[];
-    onTransferComplete: (fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean) => Transaction;
+    onTransferComplete: (fromId: string, toId: string, amount: number, status: 'SUCCESS' | 'FAILED', wasPending: boolean, trueStatus?: 'SUCCESS' | 'FAILED') => Transaction;
     onRemediate: (transactionId: string) => void;
 }
 
@@ -22,7 +24,9 @@ const caseDetails: { id: TestCase; title: string; description: string }[] = [
   { id: 'random', title: 'Random', description: '35% chance of a slow response (8-10s), 10% chance of failure.' },
   { id: 'case1', title: 'Fast Success', description: 'Guaranteed success in 3-4 seconds. Watchdog will not trigger.' },
   { id: 'case2', title: 'Slow Success', description: 'Guaranteed success between 9-13 seconds. Watchdog will trigger.' },
-  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure between 13-14 seconds. Both watchdogs will trigger.' },
+  { id: 'case3', title: 'Slow Failure', description: 'Guaranteed failure > 13s. Remediation confirms failure.' },
+  { id: 'case4', title: 'Confirmed Fail', description: 'Guaranteed failure > 13s. Remediation confirms failure.'},
+  { id: 'case5', title: 'Hidden Success', description: 'Appears to fail > 13s, but remediation finds it was a success.' },
 ];
 
 export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransferComplete, onRemediate }) => {
@@ -115,6 +119,8 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             case 'case1': transferPromise = processTransferCase1(newTraceId, numericAmount, fromBalance); break;
             case 'case2': transferPromise = processTransferCase2(newTraceId, numericAmount, fromBalance); break;
             case 'case3': transferPromise = processTransferCase3(newTraceId, numericAmount, fromBalance); break;
+            case 'case4': transferPromise = processTransferCase4(newTraceId, numericAmount, fromBalance); break;
+            case 'case5': transferPromise = processTransferCase5(newTraceId, numericAmount, fromBalance); break;
             default: transferPromise = processTransferRandom(newTraceId, numericAmount, fromBalance);
         }
 
@@ -129,8 +135,9 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             onTransferComplete(fromAccount, toAccount, numericAmount, 'SUCCESS', wasPending.current);
         } else {
             setStatus(wasPending.current ? TransactionStatus.FAILED_AFTER_PENDING : TransactionStatus.FAILED);
-            const newTransaction = onTransferComplete(fromAccount, toAccount, numericAmount, 'FAILED', wasPending.current);
-            if (newTransaction.wasPending) {
+            const trueStatus = activeCase === 'case5' ? 'SUCCESS' : 'FAILED';
+            const newTransaction = onTransferComplete(fromAccount, toAccount, numericAmount, 'FAILED', wasPending.current, trueStatus);
+            if (newTransaction.wasPending || activeCase === 'case5') {
                 setRemediableTx(newTransaction);
             }
         }
@@ -203,7 +210,7 @@ export const TransfersView: React.FC<TransfersViewProps> = ({ accounts, onTransf
             <div className="mb-8">
                 <fieldset className="bg-gray-50 p-4 rounded-lg shadow-inner border">
                 <legend className="text-lg font-medium text-synovus-dark-gray mb-2 px-2">Select a Test Case</legend>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {caseDetails.map((c) => (<div key={c.id} onClick={() => setActiveCase(c.id)} className={`p-4 rounded-lg cursor-pointer border-2 transition-all ${activeCase === c.id ? 'border-synovus-red bg-red-50' : 'border-gray-200 bg-white hover:border-gray-400'}`} role="radio" aria-checked={activeCase === c.id} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setActiveCase(c.id)}><h3 className="font-bold text-gray-800">{c.title}</h3><p className="text-sm text-gray-600 mt-1">{c.description}</p></div>))}
                 </div>
                 </fieldset>
