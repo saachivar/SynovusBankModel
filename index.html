@@ -24,21 +24,9 @@
         },
       }
     </script>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0"
-  }
-}
-</script>
-    <!-- Add Babel for in-browser JSX/TSX compilation -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-</head>
+  </head>
   <body class="bg-white">
     <div id="root"></div>
-    <!-- The data-presets attribute tells Babel how to compile the code -->
-    <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
